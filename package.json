@@ -14,7 +14,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "start": "bun ./dist/server/entry.mjs"
+    "start": "bun ./dist/server/entry.mjs",
+    "prompt": "bun scripts/prompt.ts"
   },
   "dependencies": {
     "@astrojs/svelte": "^9.1.6",

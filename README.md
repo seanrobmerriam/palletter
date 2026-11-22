@@ -164,8 +164,25 @@ Palletter starts the agent when you create a palette and shuts it down when you'
 | `bun run check` | Typecheck Astro, Svelte, and TypeScript files |
 | `bun run test` | Run the unit tests (Vitest) |
 | `bun run test:e2e` | Run the end-to-end tests (Playwright) |
+| `bun run prompt` | Print the prompt for a request, or check a model's reply (see `scripts/prompt.ts`) |
 
 The end-to-end tests need a Chromium for Playwright. Run `bunx playwright install chromium` once, or set `PW_CHROMIUM_PATH` to a Chromium that's already installed.
+
+### Trying the prompt without the app
+
+You can test the Palletter skills with any chat model:
+
+```bash
+bun run prompt '{"hues":[{"value":"#2563eb"}],"schemes":["analogous"]}' > prompt.txt
+```
+
+Paste `prompt.txt` into the model, save its whole reply as `reply.txt`, then check it:
+
+```bash
+bun run prompt '{"hues":[{"value":"#2563eb"}],"schemes":["analogous"]}' reply.txt
+```
+
+If the reply is good, this prints the tokens. If not, it lists the problems and prints a repair prompt to send back to the model.
 
 ### Project structure
 
@@ -173,6 +190,7 @@ The end-to-end tests need a Chromium for Playwright. Run `bunx playwright instal
 /
 ├── e2e/                 Playwright end-to-end tests
 ├── public/              Static assets
+├── scripts/             Developer scripts
 ├── skills/              The Palletter skills the agent follows
 ├── src/
 │   ├── components/      Astro components and UI islands

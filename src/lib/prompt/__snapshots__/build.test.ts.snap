@@ -1,0 +1,84 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`buildPrompt > builds a prompt from only a hue 1`] = `
+"Follow the Palletter skill below to create color palettes for this request.
+
+<skill path="SKILL.md">
+Skill body.
+</skill>
+
+# Palette request
+
+## Hues
+
+- #2563eb (oklch(54.6% 0.215 262.9)). An exact color (see SKILL.md, step 4).
+
+## Schemes
+
+Make one palette for each of these schemes, in this order. The base hue is 262.9°, from the first hue.
+
+- monochromatic: hue 262.9°.
+
+## Steps
+
+Every color must have exactly these steps: 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950.
+
+## Names
+
+Name each color after what it is, such as "brand", "accent", "sand", or "ocean".
+
+## Decide yourself
+
+The user left these to you: the mood, the saturation, how many colors each palette has (see SKILL.md, step 2). Choose what makes the best palette, and mention your choices in the rationale.
+
+Reply with a single \`\`\`json code block in the response format from SKILL.md, and nothing else.
+"
+`;
+
+exports[`buildPrompt > builds a prompt with every option set 1`] = `
+"Follow the Palletter skill below to create color palettes for this request.
+
+<skill path="SKILL.md">
+Skill body.
+</skill>
+
+# Palette request
+
+## Hues
+
+- "terracotta": #e2725b (oklch(67.7% 0.144 32.9)). An exact color (see SKILL.md, step 4).
+- "sage". The user named this color; choose a value that matches the name.
+
+## Mood
+
+"warm and welcoming"
+
+## Schemes
+
+Make one palette for each of these schemes, in this order. The base hue is 32.9°, from the first hue.
+
+- complementary: reference hues 32.9°, 212.9° (offsets 0°, +180° from 32.9°).
+- triadic: reference hues 32.9°, 152.9°, 272.9° (offsets 0°, +120°, +240° from 32.9°).
+
+## Steps
+
+Every color must have exactly these steps: 100, 200, 300.
+
+## Saturation
+
+muted (see saturation-and-mood.md)
+
+## Roles
+
+Make one color for each role, and set its \`role\` to the name below.
+
+- "primary": warm (see saturation-and-mood.md)
+- "secondary"
+
+## Names
+
+Name each color after its hue in plain words, such as "blue", "coral", or "sage". Tokens will be named like \`--brand-[color]-[step]\`.
+
+Reply with a single \`\`\`json code block in the response format from SKILL.md, and nothing else.
+"
+`;
