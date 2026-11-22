@@ -2,25 +2,31 @@ import { expect, test, type Page } from '@playwright/test';
 
 async function open(page: Page) {
   await page.goto('/');
-  await expect(page.locator('.generator')).toHaveAttribute('data-hydrated', 'true');
+  await expect(page.locator('[data-hydrated]')).toHaveAttribute('data-hydrated', 'true');
 }
 
 const hue = (page: Page, n = 1) => page.getByLabel(`Hue ${n}: color value or name`);
-const section = (page: Page, name: string) => page.locator('summary', { hasText: name });
+/** The Accordion trigger for a collapsed step, e.g. "2 Token format CSS custom properties, …". */
+const section = (page: Page, name: string) => page.getByRole('button', { name: new RegExp(`^\\d+ ${name}`) });
+/** Choose an option in an SV5UI Select. */
+async function choose(page: Page, label: string, option: string) {
+  await page.getByLabel(label, { exact: true }).click();
+  await page.getByRole('option', { name: option, exact: true }).click();
+}
 const create = (page: Page) => page.getByRole('button', { name: 'Create' });
 
 test.describe('generator form', () => {
   test('shows that the agent is ready', async ({ page }) => {
     await open(page);
     await expect(page.locator('.agent-status')).toHaveText(/Ready/);
-    await expect(page.getByLabel('Agent')).toHaveValue('custom');
+    await expect(page.getByLabel('Agent')).toContainText('Custom (bun)');
   });
 
   test('creates a palette from only the hue', async ({ page }) => {
     await open(page);
     await create(page).click();
     await expect(page.getByRole('status').filter({ hasText: 'Created 1 palette.' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Monochromatic' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Monochromatic', exact: true })).toBeVisible();
     await expect(page.locator('.swatch')).toHaveCount(11);
     await expect(page.locator('pre code')).toContainText('--color-color-1-50: oklch(97% 0.012 260);');
   });
@@ -69,6 +75,18 @@ test.describe('generator form', () => {
     await expect(page.getByText('primary', { exact: true }).first()).toBeVisible();
   });
 
+  test('lets you click the color picker', async ({ page }) => {
+    await open(page);
+    const picker = page.getByLabel('Hue 1 picker');
+    const box = (await picker.boundingBox())!;
+    // The picker sits inside the input's leading slot; make sure nothing covers it.
+    const hit = await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.getAttribute('aria-label'), {
+      x: box.x + box.width / 2,
+      y: box.y + box.height / 2,
+    });
+    expect(hit).toBe('Hue 1 picker');
+  });
+
   test('keeps the picker in step with the text', async ({ page }) => {
     await open(page);
     await hue(page).fill('rgb(255 0 0)');
@@ -83,14 +101,14 @@ test.describe('generator form', () => {
     await page.getByLabel('Monochromatic').uncheck();
     await section(page, 'Schemes').click();
     await section(page, 'Token format').click();
-    await page.getByLabel('Naming pattern').fill('color-[name]');
+    await page.getByLabel('Naming pattern', { exact: true }).fill('color-[name]');
     await section(page, 'Token format').click();
 
     await create(page).click();
     await expect(page.getByText('Choose at least one scheme')).toBeVisible();
     await expect(page.getByText('Use a custom property name such as --color-[name]-[step]')).toBeVisible();
-    await expect(page.getByLabel('Naming pattern')).toBeFocused();
-    await expect(page.getByLabel('Naming pattern')).toHaveAttribute('aria-invalid', 'true');
+    await expect(page.getByLabel('Naming pattern', { exact: true })).toBeFocused();
+    await expect(page.getByLabel('Naming pattern', { exact: true })).toHaveAttribute('aria-invalid', 'true');
   });
 
   test('can be used with only the keyboard', async ({ page }) => {
@@ -151,8 +169,8 @@ test.describe('generator form', () => {
     page.on('request', (r) => {
       if (r.url().includes('/api/')) requests++;
     });
-    await page.getByLabel('Show tokens as').selectOption('tailwind');
-    await page.getByLabel('in', { exact: true }).selectOption('hex');
+    await choose(page, 'Show tokens as', 'Tailwind CSS v4');
+    await choose(page, 'in', 'hex');
     await expect(page.locator('pre code')).toContainText('@theme {');
     await expect(page.locator('pre code')).toContainText(/--color-color-1-500: #[0-9a-f]{6};/);
     await expect(page.locator('.swatch').nth(5)).toContainText(/#[0-9a-f]{6}/);
@@ -194,12 +212,12 @@ test.describe('generator form', () => {
     await create(page).click();
     await expect(page.getByText('Created 2 palettes.')).toBeVisible();
 
-    const triadic = page.locator('article', { has: page.getByRole('heading', { name: 'Triadic' }) });
+    const triadic = page.locator('article', { has: page.getByRole('heading', { name: 'Triadic', exact: true }) });
     await triadic.getByRole('button', { name: 'Refine…' }).click();
     await triadic.getByLabel('What should change?').fill('warmer please');
     await triadic.getByRole('button', { name: 'Refine', exact: true }).click();
     await expect(triadic.getByText('Refined: warmer please')).toBeVisible();
-    await expect(page.locator('article', { has: page.getByRole('heading', { name: 'Monochromatic' }) })).toContainText('A fake palette.');
+    await expect(page.locator('article', { has: page.getByRole('heading', { name: 'Monochromatic', exact: true }) })).toContainText('A fake palette.');
   });
 
   test('regenerates one palette', async ({ page }) => {

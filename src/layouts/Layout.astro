@@ -22,8 +22,20 @@ const {
     <link rel="icon" href="/favicon.ico" />
     <meta name="generator" content={Astro.generator} />
     <title>{title}</title>
+    <script is:inline>
+      // Apply the saved light or dark mode before the first paint. This mirrors what SV5UI's
+      // ThemeMode (mode-watcher) does in SvelteKit, which it can't do from inside an Astro island.
+      (() => {
+        let mode = 'system';
+        try {
+          mode = localStorage.getItem('mode-watcher-mode') || 'system';
+        } catch {}
+        const dark = mode === 'dark' || (mode === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.classList.toggle('dark', dark);
+      })();
+    </script>
   </head>
-  <body>
+  <body class="min-h-dvh antialiased">
     <slot />
   </body>
 </html>
