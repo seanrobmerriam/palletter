@@ -150,18 +150,25 @@ Notes:
 - The prompt doesn't mention the color system or token format. The model only chooses colors; Palletter converts and formats them.
 - An exact color from the user goes at the requested step closest to its lightness. If no requested step is close (e.g. a mid-tone color with steps 100–300), the model keeps its hue and character instead of forcing it in.
 
-### Phase 3: ACP integration
+### Phase 3: ACP integration ✅
 
-- [ ] `src/lib/acp/agent.ts`: start the agent process from `PALLETTER_AGENT_COMMAND`. Run `initialize` and `session/new`. Advertise no file system or terminal capabilities.
-- [ ] `src/lib/acp/generate.ts`: send `session/prompt`, collect agent message chunks into the response text, and report progress as updates arrive. Support cancelling (`session/cancel`) and a timeout.
-- [ ] Deny every permission request from the agent.
-- [ ] Reuse one agent process for the server's lifetime, and start a new session for each palette request. Restart the process if it exits.
-- [ ] Map failures to clear messages: command not set, agent not installed, agent not signed in, timeout, invalid response after retry.
-- [ ] `test/fake-agent.ts`: a tiny ACP agent that returns fixture responses. Used by integration and end-to-end tests.
-- [ ] `src/pages/api/palettes.ts`: `POST` endpoint. Validate the request, generate, parse (with one repair attempt), convert, check contrast, format. Stream server-sent events: `status`, `palette` (one per scheme), `done`, and `error`.
-- [ ] `src/pages/api/agent.ts`: `GET` endpoint that reports whether an agent is configured and reachable, for the UI's connection indicator.
+- [x] `src/lib/acp/agents.ts`: agent profiles from the environment. Claude Code (the default), MiniMax (the same Claude Code ACP adapter pointed at MiniMax's Anthropic-compatible API, turned on by `MINIMAX_API_KEY`), and a custom command from `PALLETTER_AGENT_COMMAND`. `PALLETTER_AGENT` picks the default.
+- [x] `src/lib/acp/process.ts`: start the agent process, run `initialize`, open a session per request in an empty temporary folder, send `session/prompt`, collect agent message chunks into the reply, and report progress (thinking, writing). Supports cancelling (`session/cancel`) and a timeout. Advertises no file system or terminal capabilities.
+- [x] Deny every permission request from the agent. For Claude Code and MiniMax, also switch off Claude Code's built-in tools and don't load the user's Claude settings (`tools: []`, `settingSources: []`).
+- [x] `src/lib/acp/registry.ts`: one agent process per profile for the server's lifetime, restarted if it exits or its settings change.
+- [x] Map failures to clear messages (`src/lib/acp/errors.ts`): not configured, not installed, not signed in, agent error, crashed (with the exit code), timeout, cancelled, invalid response after repair, and naming clashes.
+- [x] `test/fake-agent.ts`: a tiny ACP agent that answers the real prompt with a valid palette, with modes for bad replies, no JSON, slow, permission requests, crashes, and auth errors. Used by the unit and end-to-end tests.
+- [x] `src/lib/palette/generate.ts`: the whole flow. Build the prompt, prompt the agent, parse (with one repair attempt in the same session), resolve, check, format, and report events.
+- [x] `src/pages/api/palettes.ts`: `POST` endpoint. Validate the request, then stream server-sent events: `status`, `warning`, `palette` (one per scheme), and `done` or `error`. Cancels the agent when the client disconnects.
+- [x] `src/pages/api/agent.ts`: `GET` endpoint that lists the agents and, with `?check=<id>`, starts one and reports whether it answers.
 
 **Done when:** a `curl` to `/api/palettes` streams valid palettes from a real agent, and the integration tests pass against the fake agent.
+
+Notes:
+
+- Tested with real Claude Code through `@agentclientprotocol/claude-agent-acp`, under both the Bun server and `astro dev`. Requests took about 17 seconds and returned valid palettes first time.
+- MiniMax uses the settings from [MiniMax's Claude Code guide](https://platform.minimax.io/docs/token-plan/claude-code). It is covered by configuration tests, but not yet tested against the live MiniMax API.
+- An early real run had three steps over the sRGB limit. `SKILL.md` now tells the model to check the gamut table as part of its final check, and the next run needed no adjustments.
 
 ### Phase 4: Generator UI
 

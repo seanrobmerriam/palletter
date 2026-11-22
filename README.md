@@ -6,7 +6,7 @@ Palletter is a web application for generating color palettes for use on the web.
 
 ## How it works
 
-Palletter turns your input into a prompt and sends it over the [Agent Client Protocol (ACP)](https://agentclientprotocol.com) to your connected model. The model generates the palette by following the Palletter skills and its own training, then returns the colors and tokens.
+Palletter turns your input into a prompt and sends it over the [Agent Client Protocol (ACP)](https://agentclientprotocol.com) to your connected model. The model chooses the colors by following the Palletter skills and its own training, and returns them as data. Palletter turns them into tokens.
 
 Palletter doesn't take the model's output on faith. Before you see a palette, Palletter:
 
@@ -23,7 +23,7 @@ Palletter doesn't take the model's output on faith. Before you see a palette, Pa
                                 validate · convert · contrast · format
 ```
 
-Because ACP agents run as local processes, Palletter runs on your machine and uses the agent you already have installed and signed in. Palletter never sees or stores your API keys.
+Because ACP agents run as local processes, Palletter runs on your machine and uses the agent you already have installed and signed in. Palletter doesn't store API keys. Claude Code uses its own login. A MiniMax key stays in your local `.env`, and Palletter passes it only to the agent process it starts.
 
 ## Workflow
 
@@ -126,7 +126,10 @@ Step `500` is anchored to your base hue unless you say otherwise. Lower numbers 
 
 - [Bun](https://bun.sh) 1.4.4 or later (Palletter's server runs on Bun)
 - [Node.js](https://nodejs.org) 22 or later (used by Astro's build tooling)
-- An ACP-compatible agent installed and signed in on your machine, such as Claude Code (through its ACP adapter), Gemini CLI, or any other agent that speaks ACP
+- One of these agents:
+  - **Claude Code**, signed in on your machine (run `claude` once and log in), or an `ANTHROPIC_API_KEY`
+  - **MiniMax**, with a MiniMax API key
+  - Any other agent that speaks ACP
 
 ### Install and run
 
@@ -142,15 +145,66 @@ Then open <http://localhost:4321>.
 
 ### Connect your agent
 
-Tell Palletter how to start your agent by setting the command in a `.env` file at the project root:
+Palletter talks to agents over ACP. It comes with the [Claude Code ACP adapter](https://github.com/agentclientprotocol/claude-agent-acp), installed by `bun install`, and has three agent settings. Put your settings in a `.env` file at the project root. [`.env.example`](./.env.example) lists them all.
+
+**Claude Code** is the default. If you're signed in to Claude Code, there's nothing to set up.
+
+**MiniMax** runs through the same Claude Code adapter, pointed at [MiniMax's Anthropic-compatible API](https://platform.minimax.io/docs/api-reference/text-anthropic-api). Add your key:
 
 ```bash
-PALLETTER_AGENT_COMMAND="<command that starts your agent in ACP mode>"
+MINIMAX_API_KEY=your-minimax-key
+```
+
+The model is `MiniMax-M3.1-Flash` unless you set `PALLETTER_MINIMAX_MODEL`. In mainland China, also set `PALLETTER_MINIMAX_BASE_URL=https://api.minimax.cn/anthropic`.
+
+**Any other ACP agent** can be started with a command:
+
+```bash
+PALLETTER_AGENT_COMMAND="gemini --experimental-acp"
 ```
 
 Check your agent's documentation for its ACP command.
 
-Palletter starts the agent when you create a palette and shuts it down when you're done. The agent is given only the palette request and the Palletter skills. It isn't given access to your files or terminal.
+With more than one agent set up, `PALLETTER_AGENT` (`claude`, `minimax`, or `custom`) picks the default, and each request can name its own.
+
+#### What the agent can do
+
+Palletter starts the agent the first time you create a palette and keeps it running until the server stops. Each palette request gets its own session, in an empty temporary folder.
+
+The agent is given only the palette request and the Palletter skills:
+
+- Palletter doesn't offer the agent any access to your files or terminal, and it refuses every permission request.
+- For Claude Code and MiniMax, Claude Code's built-in tools are switched off. Your Claude settings, `CLAUDE.md` files, and hooks aren't loaded.
+
+#### Settings
+
+| Variable | Default | What it does |
+| -------- | ------- | ------------ |
+| `PALLETTER_AGENT` | `claude`, or `custom` if `PALLETTER_AGENT_COMMAND` is set | The default agent |
+| `MINIMAX_API_KEY` | | Turns on the MiniMax agent |
+| `PALLETTER_MINIMAX_MODEL` | `MiniMax-M3.1-Flash` | The MiniMax model |
+| `PALLETTER_MINIMAX_BASE_URL` | `https://api.minimax.io/anthropic` | The MiniMax API address |
+| `PALLETTER_AGENT_COMMAND` | | The command for a custom ACP agent |
+| `PALLETTER_AGENT_TIMEOUT_MS` | `180000` | How long to wait for the agent's reply |
+
+### API
+
+The UI uses two endpoints, which you can also call directly.
+
+`GET /api/agent` lists the agents and which one is the default. Add `?check=claude` (or another agent) to start it and check that it answers.
+
+`POST /api/palettes` takes a palette request as JSON, with an optional `agent`. It responds with [server-sent events](https://developer.mozilla.org/docs/Web/API/Server-sent_events), in this order:
+
+1. `status` events as the agent starts, thinks, and writes
+2. One `palette` event per scheme, with the converted colors and the formatted tokens
+3. `done`, or `error` with a `code` and a message
+
+```bash
+curl -N localhost:4321/api/palettes -H 'content-type: application/json' \
+  -d '{"hues":[{"value":"#2563eb"}],"schemes":["complementary"],"colorSystem":"hex"}'
+```
+
+If the agent's reply has problems, Palletter asks it to fix them once before reporting an error.
 
 ## Development
 

@@ -23,7 +23,7 @@ Read these guides before you start:
    - If the user gave more hues than the scheme calls for, still include every hue the user gave.
 3. Build a scale for each color with exactly the steps the request lists. Follow [scales.md](scales.md).
 4. If the user gave an exact color value, use it unchanged at the requested step whose lightness (from [scales.md](scales.md)) is closest, and build the rest of that color's scale around it. If none of the requested steps is within about 5% lightness of it, don't force it in: keep its hue and character, and let every step follow the scale.
-5. Check your work against [accessibility.md](accessibility.md) and adjust any steps that fail.
+5. Check your work. Compare every color's chroma with the sRGB limits table in [scales.md](scales.md), and lower any that go over. Then check the pairs in [accessibility.md](accessibility.md), and adjust any steps that fail.
 6. Write a short rationale for each palette: one or two sentences about the choices you made, written for the user.
 7. Reply with the response below and nothing else.
 
