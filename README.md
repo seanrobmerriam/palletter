@@ -18,7 +18,7 @@ Palletter doesn't take the model's output on faith. Before you see a palette, Pa
 ```
 ┌──────────┐  palette request  ┌──────────────────┐   prompt + skills   ┌──────────────┐
 │ Browser  │ ────────────────► │ Palletter server │ ──────── ACP ─────► │  Your agent  │
-│   (UI)   │ ◄──── stream ──── │  (Astro / Node)  │ ◄──── response ──── │   / model    │
+│   (UI)   │ ◄──── stream ──── │  (Astro / Bun)   │ ◄──── response ──── │   / model    │
 └──────────┘  tokens + preview └──────────────────┘                     └──────────────┘
                                 validate · convert · contrast · format
 ```
@@ -124,7 +124,8 @@ Step `500` is anchored to your base hue unless you say otherwise. Lower numbers 
 
 ### Requirements
 
-- [Node.js](https://nodejs.org) 22 or later, or [Bun](https://bun.sh)
+- [Bun](https://bun.sh) 1.4.4 or later (Palletter's server runs on Bun)
+- [Node.js](https://nodejs.org) 22 or later (used by Astro's build tooling)
 - An ACP-compatible agent installed and signed in on your machine, such as Claude Code (through its ACP adapter), Gemini CLI, or any other agent that speaks ACP
 
 ### Install and run
@@ -157,14 +158,20 @@ Palletter starts the agent when you create a palette and shuts it down when you'
 | ------- | ------ |
 | `bun install` | Install dependencies |
 | `bun run dev` | Start the dev server at `localhost:4321` |
-| `bun run build` | Build the production site to `./dist/` |
+| `bun run build` | Build the production server to `./dist/` |
+| `bun run start` | Run the built server with Bun |
 | `bun run preview` | Preview the build locally |
-| `bun run test` | Run the unit tests |
+| `bun run check` | Typecheck Astro, Svelte, and TypeScript files |
+| `bun run test` | Run the unit tests (Vitest) |
+| `bun run test:e2e` | Run the end-to-end tests (Playwright) |
+
+The end-to-end tests need a Chromium for Playwright. Run `bunx playwright install chromium` once, or set `PW_CHROMIUM_PATH` to a Chromium that's already installed.
 
 ### Project structure
 
 ```
 /
+├── e2e/                 Playwright end-to-end tests
 ├── public/              Static assets
 ├── skills/              The Palletter skills the agent follows
 ├── src/
@@ -178,7 +185,7 @@ Palletter starts the agent when you create a palette and shuts it down when you'
 │   ├── pages/
 │   │   ├── api/         Server endpoints
 │   │   └── index.astro  The generator
-│   └── styles/          Layered CSS (base, patterns, components, utilities)
+│   └── styles/          Layered CSS (reset, base, patterns, components, utilities)
 └── PLAN.md              Development plan
 ```
 
