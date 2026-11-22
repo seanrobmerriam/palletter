@@ -96,7 +96,7 @@ function checkAgainstRequest(
     });
 
     const roles = new Set(colors.map((c) => c.role?.toLowerCase()).filter(Boolean));
-    const missingRoles = (request.roles ?? []).filter((r, i) => !roles.has(expectedRoles[i]));
+    const missingRoles = (request.roles ?? []).filter((_, i) => !roles.has(expectedRoles[i]));
     if (missingRoles.length) {
       problems.push(
         `In the ${scheme} palette, no color has the role ${missingRoles.map((r) => `"${r.role}"`).join(', ')}. Make one color for each role.`,

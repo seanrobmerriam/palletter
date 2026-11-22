@@ -7,6 +7,7 @@ import svelte from '@astrojs/svelte';
 export default defineConfig({
   // ACP agents run as local processes, so Palletter needs a server to spawn and talk to them.
   output: 'server',
-  adapter: bun({ mode: 'standalone' }),
+  // Generation streams for longer than Bun's default 10-second idle timeout; the API also sends keep-alives.
+  adapter: bun({ mode: 'standalone', idleTimeout: 60 }),
   integrations: [svelte()],
 });

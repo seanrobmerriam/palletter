@@ -11,6 +11,13 @@
   --color-border: oklch(90% 0.005 265);
   --color-accent: oklch(55% 0.2 265);
   --color-focus: oklch(60% 0.2 265);
+  --color-on-accent: oklch(100% 0 0);
+  --color-input: oklch(100% 0 0);
+  --color-danger: oklch(52% 0.19 25);
+  --color-danger-bg: oklch(96% 0.025 25);
+  --color-warning: oklch(52% 0.12 75);
+  --color-warning-bg: oklch(96% 0.04 85);
+  --color-success: oklch(55% 0.14 150);
 
   --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
@@ -34,6 +41,13 @@
     --color-border: oklch(32% 0.012 265);
     --color-accent: oklch(72% 0.15 265);
     --color-focus: oklch(75% 0.15 265);
+    --color-on-accent: oklch(17% 0.01 265);
+    --color-input: oklch(17% 0.01 265);
+    --color-danger: oklch(72% 0.15 25);
+    --color-danger-bg: oklch(26% 0.05 25);
+    --color-warning: oklch(80% 0.12 80);
+    --color-warning-bg: oklch(27% 0.04 80);
+    --color-success: oklch(75% 0.14 150);
   }
 }
 

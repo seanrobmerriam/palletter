@@ -2,7 +2,7 @@
 
 Palletter is a web application for generating color palettes for use on the web. Choose a base color, the relationship you want the colors to have, and any other rules or constraints you want on the palette. Palletter will give you a set of tokens along with their color values that you can copy and paste into your CSS.
 
-> **Status:** early development. The workflow below describes the intended v1 behavior. See [PLAN.md](./PLAN.md) for the development plan and current milestones.
+> **Status:** in development. The generator works end to end: fill in the form, and your agent creates palettes you can copy. Richer results (contrast, previews, history) are next. See [PLAN.md](./PLAN.md) for the plan and milestones.
 
 ## How it works
 
