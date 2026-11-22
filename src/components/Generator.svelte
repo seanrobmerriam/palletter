@@ -11,14 +11,33 @@
     type FieldErrors,
     type FormState,
   } from '../lib/client/form';
-  import { readEvents } from '../lib/client/sse';
+  import { postForEvents } from '../lib/client/api';
   import type { GenerateEvent } from '../lib/palette/generate';
-  import { COLOR_SYSTEMS, SCHEMES } from '../lib/prompt/schema';
+  import {
+    COLOR_SYSTEMS,
+    DEFAULT_NAMING_PATTERN,
+    SCHEMES,
+    type ColorSystem,
+    type ModelPalette,
+    type PaletteRequestInput,
+    type Scheme,
+    type TokenFormat,
+  } from '../lib/prompt/schema';
   import PaletteResult from './PaletteResult.svelte';
 
   type Agent = { id: string; label: string; available: boolean; unavailableReason?: string };
-  type PaletteEvent = Extract<GenerateEvent, { type: 'palette' }>;
   type Failure = { code: string; message: string; detail?: string };
+  /** One palette on screen. Each keeps the agent session that made it, for refinements. */
+  type Result = {
+    scheme: Scheme;
+    source: ModelPalette;
+    sessionId: string | null;
+    busy: boolean;
+    status: string;
+    error?: Failure;
+    controller?: AbortController;
+  };
+  type SentRequest = PaletteRequestInput & { agent?: string };
 
   const id = $props.id();
 
@@ -33,8 +52,16 @@
   let running = $state(false);
   let status = $state('');
   let warnings = $state<string[]>([]);
-  let palettes = $state<PaletteEvent[]>([]);
+  let results = $state<Result[]>([]);
   let failure = $state<Failure | null>(null);
+  /** The request behind the results on screen. */
+  let lastRequest: SentRequest | null = null;
+  /** How results are shown. Changing these re-formats in the browser, without the agent. */
+  let view = $state<{ format: TokenFormat; system: ColorSystem; namingPattern: string }>({
+    format: 'css',
+    system: 'oklch',
+    namingPattern: DEFAULT_NAMING_PATTERN,
+  });
   let hydrated = $state(false);
   let controller: AbortController | undefined;
 
@@ -135,42 +162,55 @@
     await generate({ ...result.input, ...(agentId ? { agent: agentId } : {}) });
   }
 
-  async function generate(body: unknown) {
+  /** Apply one stream event to the results. `scheme` limits palette events to one card. */
+  function applyEvent(event: GenerateEvent, onStatus: (message: string) => void, scheme?: Scheme) {
+    if (event.type === 'status') onStatus(event.message);
+    else if (event.type === 'warning') warnings.push(event.message);
+    else if (event.type === 'palette') {
+      if (scheme && event.source.scheme !== scheme) return;
+      const existing = results.find((r) => r.scheme === event.source.scheme);
+      if (existing) {
+        existing.source = event.source;
+        existing.error = undefined;
+      } else {
+        results.push({ scheme: event.source.scheme, source: event.source, sessionId: null, busy: false, status: '' });
+      }
+    } else if (event.type === 'session') {
+      for (const r of results) if (!scheme || r.scheme === scheme) r.sessionId = event.id;
+    }
+  }
+
+  /** Bumped on every new generation, so late events from older refinements are ignored. */
+  let generation = 0;
+
+  async function generate(body: SentRequest) {
+    generation++;
+    for (const r of results) r.controller?.abort();
     controller = new AbortController();
     running = true;
-    palettes = [];
+    results = [];
     warnings = [];
     failure = null;
     status = 'Starting…';
+    lastRequest = body;
+    view = {
+      format: body.tokenFormat ?? 'css',
+      system: body.colorSystem ?? 'oklch',
+      namingPattern: body.namingPattern ?? DEFAULT_NAMING_PATTERN,
+    };
 
     try {
-      const response = await fetch('/api/palettes', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(body),
-        signal: controller.signal,
-      });
-      if (!response.ok || !response.body) {
-        const error = (await response.json().catch(() => ({}))) as { error?: string; issues?: { path: string; message: string }[] };
-        failure = {
-          code: 'invalid_request',
-          message: error.error ?? `The server said no (${response.status}).`,
-          detail: error.issues?.map((i) => `${i.path}: ${i.message}`).join('\n'),
-        };
-        status = '';
-        return;
-      }
-
-      for await (const message of readEvents(response.body)) {
-        const event = JSON.parse(message.data) as GenerateEvent;
-        if (event.type === 'status') status = event.message;
-        else if (event.type === 'warning') warnings.push(event.message);
-        else if (event.type === 'palette') palettes.push(event);
-        else if (event.type === 'done') status = `Created ${palettes.length} ${palettes.length === 1 ? 'palette' : 'palettes'}.`;
+      const result = await postForEvents('/api/palettes', body, controller.signal, (event) => {
+        applyEvent(event, (message) => (status = message));
+        if (event.type === 'done') status = `Created ${results.length} ${results.length === 1 ? 'palette' : 'palettes'}.`;
         else if (event.type === 'error') {
           failure = { code: event.code, message: event.message, detail: event.detail };
           status = '';
         }
+      });
+      if (!result.ok) {
+        failure = { code: result.code ?? 'invalid_request', message: result.message, detail: result.detail };
+        status = '';
       }
     } catch (error) {
       if (controller?.signal.aborted) {
@@ -187,6 +227,46 @@
 
   function cancel() {
     controller?.abort();
+  }
+
+  /**
+   * Refine one palette with a note, or regenerate it without one, in the session that made it.
+   * If that session has closed, generate the scheme again from the original request instead.
+   */
+  async function refine(item: Result, note?: string) {
+    if (item.busy || !lastRequest) return;
+    item.busy = true;
+    item.error = undefined;
+    item.status = note ? 'Refining…' : 'Regenerating…';
+    item.controller = new AbortController();
+    const signal = item.controller.signal;
+    const started = generation;
+    const onEvent = (event: GenerateEvent) => {
+      // A new generation replaced these results; this refinement no longer applies.
+      if (started !== generation) return;
+      applyEvent(event, (message) => (item.status = message), item.scheme);
+      if (event.type === 'error') item.error = { code: event.code, message: event.message, detail: event.detail };
+    };
+
+    try {
+      let result = item.sessionId
+        ? await postForEvents('/api/palettes/refine', { sessionId: item.sessionId, scheme: item.scheme, note }, signal, onEvent)
+        : ({ ok: false, status: 404, code: 'session_expired', message: '' } as const);
+
+      if (!result.ok && result.code === 'session_expired') {
+        // Start again for this scheme, carrying the note into the new session's request.
+        item.status = 'The earlier session closed. Starting a new one…';
+        const body: SentRequest = { ...lastRequest, schemes: [item.scheme], ...(note ? { note } : {}) };
+        result = await postForEvents('/api/palettes', body, signal, onEvent);
+      }
+      if (!result.ok) item.error = { code: result.code ?? 'error', message: result.message, detail: result.detail };
+    } catch (error) {
+      if (!signal.aborted) item.error = { code: 'network', message: 'Lost the connection to the Palletter server.', detail: String(error) };
+    } finally {
+      item.busy = false;
+      item.status = '';
+      item.controller = undefined;
+    }
   }
 </script>
 
@@ -427,8 +507,34 @@
       </ul>
     {/if}
 
-    {#each palettes as result (result.palette.scheme)}
-      <PaletteResult palette={result.palette} tokens={result.tokens} />
+    {#if results.length}
+      <div class="view" role="group" aria-label="Display options">
+        <label for="{id}-view-format">Show tokens as</label>
+        <select id="{id}-view-format" bind:value={view.format}>
+          <option value="css">CSS custom properties</option>
+          <option value="tailwind">Tailwind CSS v4</option>
+          <option value="dtcg">Design Tokens JSON</option>
+        </select>
+        <label for="{id}-view-system">in</label>
+        <select id="{id}-view-system" bind:value={view.system}>
+          {#each COLOR_SYSTEMS as system}<option value={system}>{system}</option>{/each}
+        </select>
+      </div>
+    {/if}
+
+    {#each results as item (item.scheme)}
+      <PaletteResult
+        source={item.source}
+        format={view.format}
+        system={view.system}
+        namingPattern={view.namingPattern}
+        busy={item.busy}
+        status={item.status}
+        error={item.error}
+        onRegenerate={() => refine(item)}
+        onRefine={(note) => refine(item, note)}
+        onCancel={() => item.controller?.abort()}
+      />
     {:else}
       {#if !running && !failure}
         <p class="empty">Describe a palette and press Create. Only the hue is required.</p>
@@ -742,6 +848,18 @@
 
   .empty {
     color: var(--color-text-muted);
+  }
+
+  .view {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: 0.875rem;
+  }
+
+  .view select {
+    width: auto;
   }
 
   @keyframes spin {

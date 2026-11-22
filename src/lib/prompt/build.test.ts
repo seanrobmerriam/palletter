@@ -63,6 +63,16 @@ describe('buildPrompt', () => {
     expect(prompt).toContain(`"dusty", in the user's own words`);
   });
 
+  it('includes a note from the user, quoted', () => {
+    const prompt = requestPart({ hues: [{ name: 'blue' }], note: 'make it "warmer"' });
+    expect(prompt).toContain('## Note from the user\n\n"make it \\"warmer\\"". Follow it');
+  });
+
+  it('accepts a note longer than the mood allows', () => {
+    expect(PaletteRequestSchema.safeParse({ hues: [{ name: 'blue' }], note: 'x'.repeat(500) }).success).toBe(true);
+    expect(PaletteRequestSchema.safeParse({ hues: [{ name: 'blue' }], note: 'x'.repeat(501) }).success).toBe(false);
+  });
+
   it('does not mention the color system or token format', () => {
     const prompt = requestPart({ hues: [{ name: 'blue' }], colorSystem: 'cmyk', tokenFormat: 'dtcg' });
     expect(prompt).not.toMatch(/cmyk|dtcg/i);

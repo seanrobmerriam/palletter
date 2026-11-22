@@ -123,9 +123,130 @@ test.describe('generator form', () => {
     await context.grantPermissions(['clipboard-read', 'clipboard-write']);
     await open(page);
     await create(page).click();
-    await page.getByRole('button', { name: 'Copy' }).click();
-    await expect(page.getByRole('button', { name: 'Copied' })).toBeVisible();
+    await page.getByRole('button', { name: 'Copy', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Copied', exact: true })).toBeVisible();
     expect(await page.evaluate(() => navigator.clipboard.readText())).toContain(':root {');
+  });
+
+  test('copies one value by clicking its swatch', async ({ page, context }) => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    await open(page);
+    await create(page).click();
+    await page.getByRole('button', { name: /^color 1 500: oklch\(63% 0\.05 260\)\..*Copy value/ }).click();
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('oklch(63% 0.05 260)');
+    await expect(page.locator('.swatch').nth(5)).toContainText('Copied');
+  });
+
+  test('shows contrast badges on swatches', async ({ page }) => {
+    await open(page);
+    await create(page).click();
+    await expect(page.locator('.swatch .badge').first()).toHaveText(/\d+\.\d (AAA|AA|AA large|low)/);
+  });
+
+  test('switches format and color system without asking the agent again', async ({ page }) => {
+    await open(page);
+    await create(page).click();
+    await expect(page.getByText('Created 1 palette.')).toBeVisible();
+    let requests = 0;
+    page.on('request', (r) => {
+      if (r.url().includes('/api/')) requests++;
+    });
+    await page.getByLabel('Show tokens as').selectOption('tailwind');
+    await page.getByLabel('in', { exact: true }).selectOption('hex');
+    await expect(page.locator('pre code')).toContainText('@theme {');
+    await expect(page.locator('pre code')).toContainText(/--color-color-1-500: #[0-9a-f]{6};/);
+    await expect(page.locator('.swatch').nth(5)).toContainText(/#[0-9a-f]{6}/);
+    expect(requests).toBe(0);
+  });
+
+  test('downloads the tokens', async ({ page }) => {
+    await open(page);
+    await create(page).click();
+    const download = page.waitForEvent('download');
+    await page.getByRole('button', { name: 'Download .css' }).click();
+    expect((await download).suggestedFilename()).toBe('palette-monochromatic.css');
+  });
+
+  test('previews the palette in light and dark', async ({ page }) => {
+    await open(page);
+    await create(page).click();
+    await page.getByRole('tab', { name: 'Preview' }).click();
+    await expect(page.getByRole('region', { name: 'Light preview' })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Dark preview' })).toBeVisible();
+  });
+
+  test('shows a contrast matrix, and the tabs work with arrow keys', async ({ page }) => {
+    await open(page);
+    await create(page).click();
+    await page.getByRole('tab', { name: 'Tokens' }).focus();
+    await page.keyboard.press('ArrowRight');
+    await page.keyboard.press('ArrowRight');
+    await expect(page.getByRole('tab', { name: 'Contrast' })).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByRole('tab', { name: 'Contrast' })).toBeFocused();
+    await expect(page.locator('td')).toHaveCount(121);
+    await expect(page.locator('td').first()).toHaveAttribute('title', /color 1 50 on color 1 50: 1\.00:1, Fails/);
+  });
+
+  test('refines one palette with a note', async ({ page }) => {
+    await open(page);
+    await section(page, 'Schemes').click();
+    await page.getByLabel('Triadic').check();
+    await create(page).click();
+    await expect(page.getByText('Created 2 palettes.')).toBeVisible();
+
+    const triadic = page.locator('article', { has: page.getByRole('heading', { name: 'Triadic' }) });
+    await triadic.getByRole('button', { name: 'Refine…' }).click();
+    await triadic.getByLabel('What should change?').fill('warmer please');
+    await triadic.getByRole('button', { name: 'Refine', exact: true }).click();
+    await expect(triadic.getByText('Refined: warmer please')).toBeVisible();
+    await expect(page.locator('article', { has: page.getByRole('heading', { name: 'Monochromatic' }) })).toContainText('A fake palette.');
+  });
+
+  test('regenerates one palette', async ({ page }) => {
+    await open(page);
+    await create(page).click();
+    await page.getByRole('button', { name: 'Regenerate' }).click();
+    await expect(page.getByText('A different take.')).toBeVisible();
+  });
+
+  test('starts again when the refine session has closed', async ({ page }) => {
+    await open(page);
+    await page.getByLabel('Mood').fill('calm');
+    await create(page).click();
+    await expect(page.getByText('Created 1 palette.')).toBeVisible();
+
+    await page.route('**/api/palettes/refine', (route) =>
+      route.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ code: 'session_expired', error: 'Closed.' }) }),
+    );
+    const retry = page.waitForRequest((r) => r.url().endsWith('/api/palettes') && r.method() === 'POST');
+    await page.getByRole('button', { name: 'Refine…' }).click();
+    await page.getByLabel('What should change?').fill('brighter');
+    await page.getByRole('button', { name: 'Refine', exact: true }).click();
+    expect((await retry).postDataJSON()).toMatchObject({ schemes: ['monochromatic'], mood: 'calm', note: 'brighter' });
+    await expect(page.getByRole('alert')).toHaveCount(0);
+  });
+
+  test('ignores a refinement that finishes after a new generation started', async ({ page }) => {
+    await open(page);
+    await create(page).click();
+    await expect(page.getByText('Created 1 palette.')).toBeVisible();
+
+    // Hold the refinement's response until the new generation has finished.
+    let release: () => void = () => {};
+    const held = new Promise<void>((resolve) => (release = resolve));
+    await page.route('**/api/palettes/refine', async (route) => {
+      const response = await route.fetch();
+      const body = await response.text();
+      await held;
+      await route.fulfill({ response, body }).catch(() => {});
+    });
+    await page.getByRole('button', { name: 'Regenerate' }).click();
+    await create(page).click();
+    await expect(page.getByText('Created 1 palette.')).toBeVisible();
+    release();
+    await page.waitForTimeout(300);
+    await expect(page.getByText('A different take.')).toHaveCount(0);
+    await expect(page.getByText('A fake palette.')).toBeVisible();
   });
 
   test('fits a phone screen without sideways scrolling', async ({ page }) => {

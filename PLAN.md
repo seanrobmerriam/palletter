@@ -188,19 +188,21 @@ Notes:
 - Bun's server closes connections that are idle for 10 seconds, and real agents can think silently for longer. The palette stream now sends a keep-alive comment every 5 seconds, and the server's idle timeout is 60 seconds. An end-to-end test covers an agent that is silent for 11 seconds.
 - Tested in the browser with real Claude Code: an analogous terracotta palette took about 23 seconds.
 
-### Phase 5: Results
+### Phase 5: Results ✅
 
-- [x] One card per scheme with its rationale. (Phase 4)
-- [x] Swatch grid for each color, showing step, value in the chosen system, and a mark on gamut-mapped colors. (Phase 4)
-- [ ] Contrast badges and a "best text color" indicator on each swatch. A palette-level matrix you can expand.
-- [x] Token code block with **Copy** for the whole palette. (Phase 4)
-- [ ] Copy on click for a single token.
-- [ ] Download as `.css` or `.json`.
-- [ ] Switch the color system or token format on a finished palette without calling the model again. Formatting runs on the client using the same `format/` code.
-- [ ] Preview: a small sample UI (buttons, card, text, alert) rendered with the palette, in light and dark.
-- [ ] **Regenerate** a single scheme, and **refine** with a follow-up note (e.g. "make the secondary warmer") in the same ACP session.
+- [x] One card per scheme with its rationale, and a warning when the hues stray from the scheme.
+- [x] Swatch grid for each color, showing step, value in the chosen system, a mark on gamut-mapped colors, and a contrast badge for the text color on it.
+- [x] Click a swatch to copy its value. A contrast matrix (any color's text on any color's background, every step against every step) on a Contrast tab.
+- [x] Token code block with **Copy**, and **Download** as `.css` or `.tokens.json`.
+- [x] Switch the color system or token format on a finished palette without calling the model again. Palette events include the model's oklch palette (`source`), and the browser converts and formats it with the same code as the server.
+- [x] Preview: a small sample UI (heading, text, link, alert, buttons, badge) rendered with the palette, in light and dark (`src/lib/client/preview.ts`). Text that no step can make readable falls back to black or white, and the preview says so.
+- [x] **Regenerate** a single scheme, and **Refine** it with a note (e.g. "make the secondary warmer") in the same ACP session. Sessions stay open for 30 minutes after their last use (`src/lib/acp/sessions.ts`, `POST /api/palettes/refine`). If a session has closed, the browser generates that scheme again, adding the note to the mood.
 
 **Done when:** a user can go from input to pasted tokens in a real stylesheet, and the pasted CSS works.
+
+Notes:
+
+- Tested with real Claude Code: a complementary palette from `#2563eb` took about 32 seconds, and refining it ("make the accent warmer and a little softer") took about 12 seconds in the same session. The refined reply kept the blue unchanged and moved the gold to a softer amber.
 
 ### Phase 6: Persistence and sharing
 

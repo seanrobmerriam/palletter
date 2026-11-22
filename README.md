@@ -2,7 +2,7 @@
 
 Palletter is a web application for generating color palettes for use on the web. Choose a base color, the relationship you want the colors to have, and any other rules or constraints you want on the palette. Palletter will give you a set of tokens along with their color values that you can copy and paste into your CSS.
 
-> **Status:** in development. The generator works end to end: fill in the form, and your agent creates palettes you can copy. Richer results (contrast, previews, history) are next. See [PLAN.md](./PLAN.md) for the plan and milestones.
+> **Status:** in development. The generator works end to end: fill in the form, and your agent creates palettes you can copy. Saving and sharing palettes is next. See [PLAN.md](./PLAN.md) for the plan and milestones.
 
 ## How it works
 
@@ -196,8 +196,11 @@ The UI uses two endpoints, which you can also call directly.
 `POST /api/palettes` takes a palette request as JSON, with an optional `agent`. It responds with [server-sent events](https://developer.mozilla.org/docs/Web/API/Server-sent_events), in this order:
 
 1. `status` events as the agent starts, thinks, and writes
-2. One `palette` event per scheme, with the converted colors and the formatted tokens
-3. `done`, or `error` with a `code` and a message
+2. One `palette` event per scheme, with the converted colors, the formatted tokens, and the model's original oklch palette (`source`)
+3. `session`, with an id you can use to refine the palettes
+4. `done`, or `error` with a `code` and a message
+
+`POST /api/palettes/refine` takes `{ "sessionId", "scheme", "note" }` and streams the same events for that one scheme. Without a note, the agent makes a different version. Sessions close 30 minutes after their last use; a closed session returns 404 with `code: "session_expired"`.
 
 ```bash
 curl -N localhost:4321/api/palettes -H 'content-type: application/json' \

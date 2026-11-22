@@ -1,14 +1,15 @@
 /**
- * The whole generation flow: prompt → agent → parse (with one repair) → resolve → format.
+ * The generation flow: prompt → agent → parse (with one repair) → resolve → format.
  * Progress and results are reported as events, which the API streams to the browser.
  */
 import { AgentError } from '../acp/errors';
-import type { AgentSession } from '../acp/process';
+import type { AgentSession, PromptOptions } from '../acp/process';
 import { formatPalette, FormatError } from '../format/index';
 import { buildPrompt } from '../prompt/build';
 import { parseModelResponse } from '../prompt/parse';
+import { buildRefinePrompt } from '../prompt/refine';
 import { buildRepairPrompt } from '../prompt/repair';
-import type { PaletteRequest } from '../prompt/schema';
+import type { ModelPalette, PaletteRequest, Scheme } from '../prompt/schema';
 import { resolvePalette, type ResolvedPalette } from './resolve';
 
 export type GenerateStage = 'starting' | 'thinking' | 'writing' | 'checking' | 'repairing';
@@ -16,16 +17,26 @@ export type GenerateStage = 'starting' | 'thinking' | 'writing' | 'checking' | '
 export type GenerateEvent =
   | { type: 'status'; stage: GenerateStage; message: string }
   | { type: 'warning'; message: string }
-  | { type: 'palette'; palette: ResolvedPalette; tokens: string }
+  /**
+   * One palette. `source` is the palette exactly as the model gave it (oklch), so clients can
+   * convert and format it again without asking the model.
+   */
+  | { type: 'palette'; palette: ResolvedPalette; tokens: string; source: ModelPalette }
+  /** The agent session is kept open for refinements, under this id. */
+  | { type: 'session'; id: string }
   | { type: 'done' }
   | { type: 'error'; code: string; message: string; detail?: string };
+
+type Emit = (event: GenerateEvent) => void;
 
 export type GenerateOptions = {
   /** Opens a session on the agent. */
   openSession: () => Promise<AgentSession>;
+  /** Keep the session for refinements; returns its id. Without it, the session is closed. */
+  retainSession?: (session: AgentSession, request: PaletteRequest) => string;
   timeoutMs: number;
   signal?: AbortSignal;
-  emit: (event: GenerateEvent) => void;
+  emit: Emit;
 };
 
 const STAGE_MESSAGES: Record<GenerateStage, string> = {
@@ -36,62 +47,107 @@ const STAGE_MESSAGES: Record<GenerateStage, string> = {
   repairing: 'Asking the agent to fix its reply…',
 };
 
-/** Runs one request to completion. Always ends with exactly one `done` or `error` event. */
-export async function generatePalettes(request: PaletteRequest, options: GenerateOptions): Promise<void> {
-  const { emit, signal, timeoutMs } = options;
+function stageTracker(emit: Emit) {
   let stage: GenerateStage | undefined;
-  const setStage = (next: GenerateStage) => {
+  const set = (next: GenerateStage) => {
     if (stage === next) return;
     stage = next;
     emit({ type: 'status', stage: next, message: STAGE_MESSAGES[next] });
   };
+  return {
+    set,
+    onProgress: (progress: { kind: string }) => {
+      if (stage === 'repairing') return;
+      if (progress.kind === 'thinking') set('thinking');
+      else if (progress.kind === 'writing') set('writing');
+    },
+  };
+}
 
+/**
+ * One turn with the agent: send the prompt, parse the reply (with one repair attempt), and
+ * emit a palette event for each scheme in `request.schemes`.
+ */
+async function runTurn(
+  session: AgentSession,
+  prompt: string,
+  request: PaletteRequest,
+  { emit, signal, timeoutMs }: Pick<GenerateOptions, 'emit' | 'signal' | 'timeoutMs'>,
+  stage: ReturnType<typeof stageTracker>,
+): Promise<void> {
+  const promptOptions: PromptOptions = { signal, timeoutMs, onProgress: stage.onProgress };
+
+  let reply = await session.prompt(prompt, promptOptions);
+  stage.set('checking');
+  let result = parseModelResponse(reply, request);
+
+  if (!result.ok) {
+    stage.set('repairing');
+    reply = await session.prompt(buildRepairPrompt(result.problems), promptOptions);
+    stage.set('checking');
+    result = parseModelResponse(reply, request);
+    if (!result.ok) {
+      throw new AgentError(
+        'invalid_response',
+        'The agent’s reply still had problems after one repair attempt.',
+        [...result.problems, '', 'Reply:', reply].join('\n'),
+      );
+    }
+  }
+
+  for (const warning of result.warnings) emit({ type: 'warning', message: warning });
+
+  for (const source of result.response.palettes) {
+    const palette = resolvePalette(source, request.colorSystem);
+    const tokens = formatPalette(palette, { format: request.tokenFormat, namingPattern: request.namingPattern });
+    emit({ type: 'palette', palette, tokens, source });
+  }
+}
+
+/** Runs one request to completion. Always ends with exactly one `done` or `error` event. */
+export async function generatePalettes(request: PaletteRequest, options: GenerateOptions): Promise<void> {
+  const { emit } = options;
+  const stage = stageTracker(emit);
   let session: AgentSession | undefined;
+  let retained = false;
   try {
-    setStage('starting');
+    stage.set('starting');
     session = await options.openSession();
     // The agent is working from here, even if it doesn't stream its thoughts.
-    setStage('thinking');
-
-    const promptOptions = {
-      signal,
-      timeoutMs,
-      onProgress: (progress: { kind: string }) => {
-        if (progress.kind === 'thinking') setStage(stage === 'repairing' ? 'repairing' : 'thinking');
-        else if (progress.kind === 'writing' && stage !== 'repairing') setStage('writing');
-      },
-    };
-
-    let reply = await session.prompt(buildPrompt(request), promptOptions);
-    setStage('checking');
-    let result = parseModelResponse(reply, request);
-
-    if (!result.ok) {
-      setStage('repairing');
-      reply = await session.prompt(buildRepairPrompt(result.problems), promptOptions);
-      setStage('checking');
-      result = parseModelResponse(reply, request);
-      if (!result.ok) {
-        throw new AgentError(
-          'invalid_response',
-          'The agent’s reply still had problems after one repair attempt.',
-          [...result.problems, '', 'Reply:', reply].join('\n'),
-        );
-      }
-    }
-
-    for (const warning of result.warnings) emit({ type: 'warning', message: warning });
-
-    for (const palette of result.response.palettes) {
-      const resolved = resolvePalette(palette, request.colorSystem);
-      const tokens = formatPalette(resolved, { format: request.tokenFormat, namingPattern: request.namingPattern });
-      emit({ type: 'palette', palette: resolved, tokens });
+    stage.set('thinking');
+    await runTurn(session, buildPrompt(request), request, options, stage);
+    if (options.retainSession) {
+      emit({ type: 'session', id: options.retainSession(session, request) });
+      retained = true;
     }
     emit({ type: 'done' });
   } catch (error) {
     emit(toErrorEvent(error));
   } finally {
-    session?.close();
+    if (!retained) session?.close();
+  }
+}
+
+export type RefineOptions = Pick<GenerateOptions, 'emit' | 'signal' | 'timeoutMs'>;
+
+/**
+ * Refine one palette in an existing session, with a note from the user, or regenerate it
+ * without one. Emits a single palette event for that scheme, then `done` or `error`.
+ */
+export async function refinePalette(
+  session: AgentSession,
+  request: PaletteRequest,
+  scheme: Scheme,
+  note: string | undefined,
+  options: RefineOptions,
+): Promise<void> {
+  const stage = stageTracker(options.emit);
+  try {
+    stage.set('thinking');
+    await runTurn(session, buildRefinePrompt(request, scheme, note), { ...request, schemes: [scheme] }, options, stage);
+    options.emit({ type: 'done' });
+  } catch (error) {
+    options.emit(toErrorEvent(error));
   }
 }
 
