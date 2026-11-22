@@ -85,7 +85,7 @@ The angles are a starting point. The Palletter skills tell the model to adjust h
 Palletter can output tokens as:
 
 - **CSS custom properties.** You choose the naming pattern, e.g. `--brand-[color]-[step]`, `--color-[role]-[step]`, or `--color-[mood]-[step]`.
-- **Tailwind CSS v4.** An `@theme` block, so the colors are available as utilities such as `bg-brand-500`.
+- **Tailwind CSS v4.** An `@theme` block, so the colors are available as utilities such as `bg-brand-500`. Tailwind needs names in the form `--color-[name]-[step]`, so the naming pattern doesn't apply.
 - **Design Tokens JSON.** In the [W3C Design Tokens Community Group](https://www.designtokens.org) format, for tools such as Style Dictionary and Figma plugins.
 
 ### Example output
@@ -116,7 +116,7 @@ The same palette as a Tailwind v4 theme:
 | ------ | ----- |
 | Full   | `50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950` |
 | Range  | Any contiguous range of the full scale, e.g. `100` to `300` |
-| Count  | A specific number of evenly spaced steps, e.g. 5 |
+| Count  | A specific number of evenly spaced steps, e.g. 5 gives `50, 300, 500, 700, 950` |
 
 Step `500` is anchored to your base hue unless you say otherwise. Lower numbers are lighter and higher numbers are darker, so the same token works the way you'd expect from Tailwind.
 
@@ -180,12 +180,14 @@ The end-to-end tests need a Chromium for Playwright. Run `bunx playwright instal
 │   ├── lib/
 │   │   ├── acp/         ACP client and agent process management
 │   │   ├── color/       Conversion, gamut mapping, and contrast
-│   │   ├── format/      Token formatters (CSS, Tailwind, JSON)
+│   │   ├── format/      Token formatters (CSS, Tailwind, JSON) and naming
+│   │   ├── palette/     Turns a model palette into values, flags, and contrast
 │   │   └── prompt/      Prompt builder and response schema
 │   ├── pages/
 │   │   ├── api/         Server endpoints
 │   │   └── index.astro  The generator
 │   └── styles/          Layered CSS (reset, base, patterns, components, utilities)
+├── test/                Shared test fixtures
 └── PLAN.md              Development plan
 ```
 

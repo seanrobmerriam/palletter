@@ -106,19 +106,27 @@ Each phase ends with something you can run and check. Phases 2 and 3 can run in 
 
 Notes: `astro check` doesn't support TypeScript 7 yet, so TypeScript is pinned to 6.
 
-### Phase 1: Domain model and color engine
+### Phase 1: Domain model and color engine ✅
 
 No UI and no model yet. This is pure, well-tested TypeScript.
 
-- [ ] `src/lib/prompt/schema.ts`: zod schemas and types for `PaletteRequest` and `ModelResponse`.
-- [ ] `src/lib/color/convert.ts`: parse oklch, then convert to rgb, hex, hsl, and cmyk.
-- [ ] `src/lib/color/gamut.ts`: detect colors outside sRGB and map them into gamut (culori's `toGamut`). Record which colors were adjusted.
-- [ ] `src/lib/color/contrast.ts`: WCAG 2 contrast ratio for every pair in a palette, plus each step against white and black. Flag pairs below AA (4.5:1 text, 3:1 large text and UI).
-- [ ] `src/lib/color/scheme.ts`: reference hue angles for each scheme. These are used in the prompt and to warn when a result is far from the requested scheme.
-- [ ] `src/lib/format/`: `css.ts`, `tailwind.ts`, and `dtcg.ts`. Each takes validated palettes, a color system, and a naming pattern, and returns a string.
-- [ ] Unit tests for every conversion, gamut edge cases (pure P3 colors, black, white, greys), naming patterns, and each formatter (snapshot tests).
+- [x] `src/lib/prompt/schema.ts`: zod schemas and types for `PaletteRequest` and `ModelResponse`, plus `resolveSteps` to turn a scale into its steps.
+- [x] `src/lib/color/convert.ts`: parse oklch, then convert to rgb, hex, hsl, and cmyk.
+- [x] `src/lib/color/gamut.ts`: detect colors outside sRGB (and P3) and map them into sRGB (culori's `toGamut`). Record which colors were adjusted.
+- [x] `src/lib/color/contrast.ts`: WCAG 2 contrast ratio for every pair in a palette, plus the best text color (white or black) for each step. Levels: AAA 7:1, AA 4.5:1, AA-large 3:1.
+- [x] `src/lib/color/scheme.ts`: reference hue angles for each scheme, and a check that warns when a result is more than 35° from the requested scheme.
+- [x] `src/lib/palette/resolve.ts`: turn a validated palette into converted values, gamut flags, text colors, and the scheme check. Used by the formatters now and the UI later.
+- [x] `src/lib/format/`: `css.ts`, `tailwind.ts`, and `dtcg.ts`, with naming patterns in `naming.ts`. Each takes a resolved palette and returns a string.
+- [x] Unit tests for every conversion, gamut edge cases (P3 colors, black, white, greys), naming patterns, and each formatter (snapshot tests for every format and color system).
 
 **Done when:** a hard-coded `ModelResponse` fixture turns into correct output for every format and color system combination.
+
+Notes:
+
+- Naming patterns support `[name]`, `[role]`, and `[step]`. `[color]` and `[mood]` are aliases of `[name]`. If a pattern would give two tokens the same name, formatting fails with a message saying which ones clash.
+- Tailwind ignores the naming pattern and always uses `--color-[name]-[step]`, because Tailwind only makes color utilities from `--color-*` variables.
+- For cmyk, CSS and Tailwind output use the hex value with the CMYK value in a comment. DTCG output uses sRGB with the CMYK value under `$extensions["dev.palletter"]`.
+- A scale with a count of steps spreads them evenly and symmetrically, e.g. 5 steps are 50, 300, 500, 700, 950.
 
 ### Phase 2: Palletter skills and prompt builder
 

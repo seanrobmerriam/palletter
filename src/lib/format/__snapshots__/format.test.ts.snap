@@ -1,0 +1,582 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`formatPalette > css in cmyk 1`] = `
+":root {
+  --color-brand-100: #dbeafe; /* cmyk(14% 8% 0% 0%) */
+  --color-brand-500: #4285f1; /* cmyk(73% 45% 0% 5%) */
+  --color-brand-900: #1e3a8a; /* cmyk(78% 58% 0% 46%) */
+
+  --color-sea-glass-100: #c9faf9; /* cmyk(20% 0% 0% 2%) */
+  --color-sea-glass-500: #00c1fb; /* cmyk(100% 23% 0% 2%) */
+  --color-sea-glass-900: #204955; /* cmyk(63% 14% 0% 67%) */
+}
+"
+`;
+
+exports[`formatPalette > css in hex 1`] = `
+":root {
+  --color-brand-100: #dbeafe;
+  --color-brand-500: #4285f1;
+  --color-brand-900: #1e3a8a;
+
+  --color-sea-glass-100: #c9faf9;
+  --color-sea-glass-500: #00c1fb;
+  --color-sea-glass-900: #204955;
+}
+"
+`;
+
+exports[`formatPalette > css in hsl 1`] = `
+":root {
+  --color-brand-100: hsl(214 96% 93%);
+  --color-brand-500: hsl(217 87% 60%);
+  --color-brand-900: hsl(224 64% 33%);
+
+  --color-sea-glass-100: hsl(179 82% 88%);
+  --color-sea-glass-500: hsl(194 100% 49%);
+  --color-sea-glass-900: hsl(194 46% 23%);
+}
+"
+`;
+
+exports[`formatPalette > css in oklch 1`] = `
+":root {
+  --color-brand-100: oklch(93.2% 0.032 255.6);
+  --color-brand-500: oklch(62.8% 0.177 259.8);
+  --color-brand-900: oklch(37.9% 0.138 265.5);
+
+  --color-sea-glass-100: oklch(95% 0.05 195);
+  --color-sea-glass-500: oklch(75% 0.2 225);
+  --color-sea-glass-900: oklch(38% 0.05 220);
+}
+"
+`;
+
+exports[`formatPalette > css in rgb 1`] = `
+":root {
+  --color-brand-100: rgb(219 234 254);
+  --color-brand-500: rgb(66 133 241);
+  --color-brand-900: rgb(30 58 138);
+
+  --color-sea-glass-100: rgb(201 250 249);
+  --color-sea-glass-500: rgb(0 193 251);
+  --color-sea-glass-900: rgb(32 73 85);
+}
+"
+`;
+
+exports[`formatPalette > dtcg in cmyk 1`] = `
+"{
+  "$description": "A calm blue brand color with a teal accent.",
+  "brand": {
+    "100": {
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0.8583,
+          0.9178,
+          0.9973
+        ],
+        "hex": "#dbeafe"
+      },
+      "$extensions": {
+        "dev.palletter": {
+          "cmyk": "cmyk(14% 8% 0% 0%)"
+        }
+      }
+    },
+    "500": {
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0.2598,
+          0.5201,
+          0.9467
+        ],
+        "hex": "#4285f1"
+      },
+      "$extensions": {
+        "dev.palletter": {
+          "cmyk": "cmyk(73% 45% 0% 5%)"
+        }
+      }
+    },
+    "900": {
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0.1171,
+          0.2273,
+          0.5416
+        ],
+        "hex": "#1e3a8a"
+      },
+      "$extensions": {
+        "dev.palletter": {
+          "cmyk": "cmyk(78% 58% 0% 46%)"
+        }
+      }
+    },
+    "$type": "color",
+    "$description": "primary"
+  },
+  "sea-glass": {
+    "100": {
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0.7863,
+          0.9792,
+          0.9757
+        ],
+        "hex": "#c9faf9"
+      },
+      "$extensions": {
+        "dev.palletter": {
+          "cmyk": "cmyk(20% 0% 0% 2%)"
+        }
+      }
+    },
+    "500": {
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0,
+          0.7582,
+          0.9846
+        ],
+        "hex": "#00c1fb"
+      },
+      "$extensions": {
+        "dev.palletter": {
+          "cmyk": "cmyk(100% 23% 0% 2%)",
+          "gamutMapped": true
+        }
+      }
+    },
+    "900": {
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0.1243,
+          0.2847,
+          0.3325
+        ],
+        "hex": "#204955"
+      },
+      "$extensions": {
+        "dev.palletter": {
+          "cmyk": "cmyk(63% 14% 0% 67%)"
+        }
+      }
+    },
+    "$type": "color",
+    "$description": "secondary"
+  }
+}
+"
+`;
+
+exports[`formatPalette > dtcg in hex 1`] = `
+"{
+  "$description": "A calm blue brand color with a teal accent.",
+  "brand": {
+    "100": {
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0.8583,
+          0.9178,
+          0.9973
+        ],
+        "hex": "#dbeafe"
+      }
+    },
+    "500": {
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0.2598,
+          0.5201,
+          0.9467
+        ],
+        "hex": "#4285f1"
+      }
+    },
+    "900": {
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0.1171,
+          0.2273,
+          0.5416
+        ],
+        "hex": "#1e3a8a"
+      }
+    },
+    "$type": "color",
+    "$description": "primary"
+  },
+  "sea-glass": {
+    "100": {
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0.7863,
+          0.9792,
+          0.9757
+        ],
+        "hex": "#c9faf9"
+      }
+    },
+    "500": {
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0,
+          0.7582,
+          0.9846
+        ],
+        "hex": "#00c1fb"
+      },
+      "$extensions": {
+        "dev.palletter": {
+          "gamutMapped": true
+        }
+      }
+    },
+    "900": {
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0.1243,
+          0.2847,
+          0.3325
+        ],
+        "hex": "#204955"
+      }
+    },
+    "$type": "color",
+    "$description": "secondary"
+  }
+}
+"
+`;
+
+exports[`formatPalette > dtcg in hsl 1`] = `
+"{
+  "$description": "A calm blue brand color with a teal accent.",
+  "brand": {
+    "100": {
+      "$value": {
+        "colorSpace": "hsl",
+        "components": [
+          214.29,
+          96.23,
+          92.78
+        ],
+        "hex": "#dbeafe"
+      }
+    },
+    "500": {
+      "$value": {
+        "colorSpace": "hsl",
+        "components": [
+          217.26,
+          86.56,
+          60.32
+        ],
+        "hex": "#4285f1"
+      }
+    },
+    "900": {
+      "$value": {
+        "colorSpace": "hsl",
+        "components": [
+          224.43,
+          64.44,
+          32.94
+        ],
+        "hex": "#1e3a8a"
+      }
+    },
+    "$type": "color",
+    "$description": "primary"
+  },
+  "sea-glass": {
+    "100": {
+      "$value": {
+        "colorSpace": "hsl",
+        "components": [
+          178.94,
+          82.22,
+          88.27
+        ],
+        "hex": "#c9faf9"
+      }
+    },
+    "500": {
+      "$value": {
+        "colorSpace": "hsl",
+        "components": [
+          193.8,
+          100,
+          49.23
+        ],
+        "hex": "#00c1fb"
+      },
+      "$extensions": {
+        "dev.palletter": {
+          "gamutMapped": true
+        }
+      }
+    },
+    "900": {
+      "$value": {
+        "colorSpace": "hsl",
+        "components": [
+          193.78,
+          45.57,
+          22.84
+        ],
+        "hex": "#204955"
+      }
+    },
+    "$type": "color",
+    "$description": "secondary"
+  }
+}
+"
+`;
+
+exports[`formatPalette > dtcg in oklch 1`] = `
+"{
+  "$description": "A calm blue brand color with a teal accent.",
+  "brand": {
+    "100": {
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [
+          0.932,
+          0.032,
+          255.6
+        ],
+        "hex": "#dbeafe"
+      }
+    },
+    "500": {
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [
+          0.628,
+          0.177,
+          259.8
+        ],
+        "hex": "#4285f1"
+      }
+    },
+    "900": {
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [
+          0.379,
+          0.138,
+          265.5
+        ],
+        "hex": "#1e3a8a"
+      }
+    },
+    "$type": "color",
+    "$description": "primary"
+  },
+  "sea-glass": {
+    "100": {
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [
+          0.95,
+          0.05,
+          195
+        ],
+        "hex": "#c9faf9"
+      }
+    },
+    "500": {
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [
+          0.75,
+          0.2,
+          225
+        ],
+        "hex": "#00c1fb"
+      }
+    },
+    "900": {
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [
+          0.38,
+          0.05,
+          220
+        ],
+        "hex": "#204955"
+      }
+    },
+    "$type": "color",
+    "$description": "secondary"
+  }
+}
+"
+`;
+
+exports[`formatPalette > dtcg in rgb 1`] = `
+"{
+  "$description": "A calm blue brand color with a teal accent.",
+  "brand": {
+    "100": {
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0.8583,
+          0.9178,
+          0.9973
+        ],
+        "hex": "#dbeafe"
+      }
+    },
+    "500": {
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0.2598,
+          0.5201,
+          0.9467
+        ],
+        "hex": "#4285f1"
+      }
+    },
+    "900": {
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0.1171,
+          0.2273,
+          0.5416
+        ],
+        "hex": "#1e3a8a"
+      }
+    },
+    "$type": "color",
+    "$description": "primary"
+  },
+  "sea-glass": {
+    "100": {
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0.7863,
+          0.9792,
+          0.9757
+        ],
+        "hex": "#c9faf9"
+      }
+    },
+    "500": {
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0,
+          0.7582,
+          0.9846
+        ],
+        "hex": "#00c1fb"
+      },
+      "$extensions": {
+        "dev.palletter": {
+          "gamutMapped": true
+        }
+      }
+    },
+    "900": {
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0.1243,
+          0.2847,
+          0.3325
+        ],
+        "hex": "#204955"
+      }
+    },
+    "$type": "color",
+    "$description": "secondary"
+  }
+}
+"
+`;
+
+exports[`formatPalette > tailwind in cmyk 1`] = `
+"@theme {
+  --color-brand-100: #dbeafe; /* cmyk(14% 8% 0% 0%) */
+  --color-brand-500: #4285f1; /* cmyk(73% 45% 0% 5%) */
+  --color-brand-900: #1e3a8a; /* cmyk(78% 58% 0% 46%) */
+
+  --color-sea-glass-100: #c9faf9; /* cmyk(20% 0% 0% 2%) */
+  --color-sea-glass-500: #00c1fb; /* cmyk(100% 23% 0% 2%) */
+  --color-sea-glass-900: #204955; /* cmyk(63% 14% 0% 67%) */
+}
+"
+`;
+
+exports[`formatPalette > tailwind in hex 1`] = `
+"@theme {
+  --color-brand-100: #dbeafe;
+  --color-brand-500: #4285f1;
+  --color-brand-900: #1e3a8a;
+
+  --color-sea-glass-100: #c9faf9;
+  --color-sea-glass-500: #00c1fb;
+  --color-sea-glass-900: #204955;
+}
+"
+`;
+
+exports[`formatPalette > tailwind in hsl 1`] = `
+"@theme {
+  --color-brand-100: hsl(214 96% 93%);
+  --color-brand-500: hsl(217 87% 60%);
+  --color-brand-900: hsl(224 64% 33%);
+
+  --color-sea-glass-100: hsl(179 82% 88%);
+  --color-sea-glass-500: hsl(194 100% 49%);
+  --color-sea-glass-900: hsl(194 46% 23%);
+}
+"
+`;
+
+exports[`formatPalette > tailwind in oklch 1`] = `
+"@theme {
+  --color-brand-100: oklch(93.2% 0.032 255.6);
+  --color-brand-500: oklch(62.8% 0.177 259.8);
+  --color-brand-900: oklch(37.9% 0.138 265.5);
+
+  --color-sea-glass-100: oklch(95% 0.05 195);
+  --color-sea-glass-500: oklch(75% 0.2 225);
+  --color-sea-glass-900: oklch(38% 0.05 220);
+}
+"
+`;
+
+exports[`formatPalette > tailwind in rgb 1`] = `
+"@theme {
+  --color-brand-100: rgb(219 234 254);
+  --color-brand-500: rgb(66 133 241);
+  --color-brand-900: rgb(30 58 138);
+
+  --color-sea-glass-100: rgb(201 250 249);
+  --color-sea-glass-500: rgb(0 193 251);
+  --color-sea-glass-900: rgb(32 73 85);
+}
+"
+`;
