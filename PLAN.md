@@ -128,21 +128,27 @@ Notes:
 - For cmyk, CSS and Tailwind output use the hex value with the CMYK value in a comment. DTCG output uses sRGB with the CMYK value under `$extensions["dev.palletter"]`.
 - A scale with a count of steps spreads them evenly and symmetrically, e.g. 5 steps are 50, 300, 500, 700, 950.
 
-### Phase 2: Palletter skills and prompt builder
+### Phase 2: Palletter skills and prompt builder ✅
 
-The skills are the instructions that make the model good at this. They're versioned Markdown files in `skills/`.
+The skills are the instructions that make the model good at this. They're versioned Markdown files in `skills/`, bundled into the server at build time.
 
-- [ ] `skills/palletter/SKILL.md`: the entry point. The model's role, the steps to follow, and the exact response format with an example.
-- [ ] `skills/palletter/color-theory.md`: how each scheme works, and why to adjust hue, lightness, and chroma instead of placing colors on exact angles.
-- [ ] `skills/palletter/scales.md`: how to build a 50–950 scale in oklch. Even lightness steps, chroma that peaks in the middle, and slight hue shifts toward the ends so light steps don't look washed out and dark steps don't look muddy.
-- [ ] `skills/palletter/saturation-and-mood.md`: what each saturation option means in oklch chroma ranges, and how to turn moods and temperatures into hue and chroma choices.
-- [ ] `skills/palletter/accessibility.md`: make sure the scale includes steps usable for text on light and dark backgrounds.
-- [ ] `src/lib/prompt/build.ts`: turn a `PaletteRequest` into a prompt. Include the skills, the request as structured data, and the response format. Leave out options the user didn't set, and tell the model to decide them.
-- [ ] `src/lib/prompt/parse.ts`: extract the JSON block, validate it, and return a typed result or a list of problems.
-- [ ] `src/lib/prompt/repair.ts`: build a follow-up prompt that lists the problems and asks for a corrected response.
-- [ ] Tests: snapshot tests of built prompts. Parser tests with good, truncated, extra-text, and wrong-shape responses.
+- [x] `skills/palletter/SKILL.md`: the entry point. The model's role, the steps to follow, and the exact response format with an example.
+- [x] `skills/palletter/color-theory.md`: how each scheme works, and why to adjust hue, lightness, and chroma instead of placing colors on exact angles.
+- [x] `skills/palletter/scales.md`: how to build a 50–950 scale in oklch. Target lightness per step, a chroma curve that peaks in the middle, hue drift, and a table of the real sRGB chroma limits for each step and hue family.
+- [x] `skills/palletter/saturation-and-mood.md`: what each saturation option means in oklch chroma ranges, and how to turn moods and temperatures into hue and chroma choices.
+- [x] `skills/palletter/accessibility.md`: which step pairs must work for text on light and dark backgrounds.
+- [x] `src/lib/prompt/build.ts`: turn a `PaletteRequest` into a prompt. Include the skills, the request (with exact colors converted to oklch, reference hues for each scheme, the exact steps, and naming guidance based on the naming pattern), and the response format. Options the user didn't set are listed for the model to decide. Text the user typed is quoted.
+- [x] `src/lib/prompt/parse.ts`: extract the JSON block, validate it, and check it against the request (every scheme once, exactly the requested steps, every role). Returns a typed result or a list of problems. Unrequested palettes and extra steps are dropped with a warning.
+- [x] `src/lib/prompt/repair.ts`: build a follow-up prompt that lists the problems and asks for a corrected response.
+- [x] `scripts/prompt.ts` (`bun run prompt`): print the prompt for a request, or check a model's reply and print the tokens or the repair prompt. For trying the prompt with any chat model before phase 3.
+- [x] Tests: snapshot tests of built prompts. Parser tests with good, truncated, extra-text, wrong-shape, and incomplete responses. Tests that the example in `SKILL.md` matches the schema, that every linked guide is bundled, and that the gamut table in `scales.md` matches the real sRGB limits.
 
 **Done when:** pasting a built prompt into any chat model returns a response the parser accepts, for each scheme.
+
+Notes:
+
+- The prompt doesn't mention the color system or token format. The model only chooses colors; Palletter converts and formats them.
+- An exact color from the user goes at the requested step closest to its lightness. If no requested step is close (e.g. a mid-tone color with steps 100–300), the model keeps its hue and character instead of forcing it in.
 
 ### Phase 3: ACP integration
 
