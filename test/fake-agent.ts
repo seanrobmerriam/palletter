@@ -31,7 +31,10 @@ const SCHEME_HUES: Record<string, number[]> = {
 
 type Mode = 'good' | 'bad-then-good' | 'bad' | 'no-json' | 'slow' | 'pause' | 'permission' | 'crash' | 'auth';
 
-function palettesFor(prompt: string, { dropStep = false, rationale = 'A fake palette.' } = {}) {
+function palettesFor(
+  prompt: string,
+  { dropStep = false, rationale = 'A fake palette.', only, hueShift = 0 }: { dropStep?: boolean; rationale?: string; only?: string; hueShift?: number } = {},
+) {
   const requestPart = prompt.slice(prompt.indexOf('# Palette request'));
   const schemes = [...requestPart.matchAll(/^- (monochromatic|analogous|complementary|split-complementary|triadic|tetradic):/gm)].map((m) => m[1]!);
   const steps = (/Every color must have exactly these steps: ([\d, ]+)\./.exec(requestPart)?.[1] ?? '500').split(', ');
@@ -39,14 +42,14 @@ function palettesFor(prompt: string, { dropStep = false, rationale = 'A fake pal
   const roles = [...rolesSection.matchAll(/^- "([^"]+)"/gm)].map((m) => m[1]!);
 
   return {
-    palettes: schemes.map((scheme) => {
+    palettes: schemes.filter((scheme) => !only || scheme === only).map((scheme) => {
       const offsets = SCHEME_HUES[scheme]!;
       const count = roles.length || offsets.length;
       return {
         scheme,
         rationale,
         colors: Array.from({ length: count }, (_, i) => {
-          const hue = (((260 + (offsets[i % offsets.length] ?? 0)) % 360) + 360) % 360;
+          const hue = (((260 + hueShift + (offsets[i % offsets.length] ?? 0)) % 360) + 360) % 360;
           const kept = dropStep && i === 0 ? steps.slice(1) : steps;
           return {
             name: roles[i] ? `${roles[i]} color` : `color ${i + 1}`,
@@ -120,6 +123,17 @@ const app = agent({ name: 'fake-agent' })
         options: [{ optionId: 'allow', name: 'Allow', kind: 'allow_once' }],
       });
       rationale = `Permission outcome: ${answer.outcome.outcome}.`;
+    }
+
+    // A refine or regenerate prompt asks for one scheme again.
+    const refine = /changes to the ([a-z-]+) palette: (".*")|different take on the ([a-z-]+) palette/.exec(text);
+    if (refine) {
+      const scheme = refine[1] ?? refine[3]!;
+      const note = refine[2] ? JSON.parse(refine[2]) : undefined;
+      rationale = note ? `Refined: ${note}` : 'A different take.';
+      const json = JSON.stringify(palettesFor(first, { rationale, only: scheme, hueShift: 20 * turn }), null, 2);
+      await say(`\`\`\`json\n${json}\n\`\`\``);
+      return { stopReason: 'end_turn' as const };
     }
 
     const dropStep = mode === 'bad' || (mode === 'bad-then-good' && turn === 1);

@@ -2,7 +2,8 @@ import { afterAll, describe, expect, it } from 'vitest';
 import { fakeAgentProfile } from '../../../test/agent';
 import { AgentProcess } from '../acp/process';
 import { PaletteRequestSchema, type PaletteRequestInput } from '../prompt/schema';
-import { generatePalettes, type GenerateEvent } from './generate';
+import { generatePalettes, refinePalette, type GenerateEvent } from './generate';
+import type { AgentSession } from '../acp/process';
 
 const agent = new AgentProcess(fakeAgentProfile());
 afterAll(() => agent.stop());
@@ -93,5 +94,49 @@ describe('generatePalettes', () => {
     setTimeout(() => abort.abort(), 100);
     const events = await run({ hues: [{ name: 'blue' }], mood: 'fake:slow' }, abort.signal);
     expect(events.at(-1)).toMatchObject({ type: 'error', code: 'cancelled' });
+  });
+});
+
+describe('refinePalette', () => {
+  async function generateAndKeep(input: PaletteRequestInput) {
+    const request = PaletteRequestSchema.parse(input);
+    let kept: AgentSession | undefined;
+    const events: GenerateEvent[] = [];
+    await generatePalettes(request, {
+      openSession: () => agent.newSession(),
+      retainSession: (session) => {
+        kept = session;
+        return 'session-1';
+      },
+      timeoutMs: 10_000,
+      emit: (e) => events.push(e),
+    });
+    return { request, session: kept!, events };
+  }
+
+  it('keeps the session when asked, and says so before done', async () => {
+    const { events, session } = await generateAndKeep({ hues: [{ name: 'blue' }] });
+    expect(events.slice(-2)).toEqual([{ type: 'session', id: 'session-1' }, { type: 'done' }]);
+    expect(events.find((e) => e.type === 'palette')).toHaveProperty('source.scheme', 'monochromatic');
+    session.close();
+  });
+
+  it('refines one palette in the same session', async () => {
+    const { request, session } = await generateAndKeep({ hues: [{ name: 'blue' }], schemes: ['analogous', 'triadic'] });
+    const events: GenerateEvent[] = [];
+    await refinePalette(session, request, 'triadic', 'warmer please', { timeoutMs: 10_000, emit: (e) => events.push(e) });
+    const palettes = events.filter((e) => e.type === 'palette');
+    expect(palettes).toHaveLength(1);
+    expect(palettes[0]!.source).toMatchObject({ scheme: 'triadic', rationale: 'Refined: warmer please' });
+    expect(events.at(-1)).toEqual({ type: 'done' });
+    session.close();
+  });
+
+  it('regenerates without a note', async () => {
+    const { request, session } = await generateAndKeep({ hues: [{ name: 'blue' }] });
+    const events: GenerateEvent[] = [];
+    await refinePalette(session, request, 'monochromatic', undefined, { timeoutMs: 10_000, emit: (e) => events.push(e) });
+    expect(events.find((e) => e.type === 'palette')).toHaveProperty('source.rationale', 'A different take.');
+    session.close();
   });
 });

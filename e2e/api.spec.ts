@@ -66,6 +66,35 @@ test.describe('POST /api/palettes', () => {
   });
 });
 
+test.describe('POST /api/palettes/refine', () => {
+  test('refines a palette in the session a generation kept', async ({ request }) => {
+    const first = events(await (await request.post('/api/palettes', { data: { hues: [{ name: 'blue' }] } })).text());
+    const session = first.find((e) => e.type === 'session') as Event & { id: string };
+    expect(session.id).toMatch(/^[0-9a-f-]{36}$/);
+
+    const response = await request.post('/api/palettes/refine', {
+      data: { sessionId: session.id, scheme: 'monochromatic', note: 'warmer' },
+    });
+    const received = events(await response.text());
+    const palette = received.find((e) => e.type === 'palette') as Event & { source: { rationale: string } };
+    expect(palette.source.rationale).toBe('Refined: warmer');
+    expect(received.at(-1)).toEqual({ type: 'done' });
+  });
+
+  test('reports a session that has closed', async ({ request }) => {
+    const response = await request.post('/api/palettes/refine', { data: { sessionId: 'gone', scheme: 'triadic' } });
+    expect(response.status()).toBe(404);
+    expect(await response.json()).toMatchObject({ code: 'session_expired' });
+  });
+
+  test('rejects a scheme the session did not make', async ({ request }) => {
+    const first = events(await (await request.post('/api/palettes', { data: { hues: [{ name: 'blue' }] } })).text());
+    const session = first.find((e) => e.type === 'session') as Event & { id: string };
+    const response = await request.post('/api/palettes/refine', { data: { sessionId: session.id, scheme: 'triadic' } });
+    expect(response.status()).toBe(400);
+  });
+});
+
 test('keeps the stream open while the agent is silent for longer than the idle timeout', async ({ request }) => {
   test.slow();
   const response = await request.post('/api/palettes', {
