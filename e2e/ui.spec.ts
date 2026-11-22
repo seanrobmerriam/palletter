@@ -1,0 +1,138 @@
+import { expect, test, type Page } from '@playwright/test';
+
+async function open(page: Page) {
+  await page.goto('/');
+  await expect(page.locator('.generator')).toHaveAttribute('data-hydrated', 'true');
+}
+
+const hue = (page: Page, n = 1) => page.getByLabel(`Hue ${n}: color value or name`);
+const section = (page: Page, name: string) => page.locator('summary', { hasText: name });
+const create = (page: Page) => page.getByRole('button', { name: 'Create' });
+
+test.describe('generator form', () => {
+  test('shows that the agent is ready', async ({ page }) => {
+    await open(page);
+    await expect(page.locator('.agent-status')).toHaveText(/Ready/);
+    await expect(page.getByLabel('Agent')).toHaveValue('custom');
+  });
+
+  test('creates a palette from only the hue', async ({ page }) => {
+    await open(page);
+    await create(page).click();
+    await expect(page.getByRole('status').filter({ hasText: 'Created 1 palette.' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Monochromatic' })).toBeVisible();
+    await expect(page.locator('.swatch')).toHaveCount(11);
+    await expect(page.locator('pre code')).toContainText('--color-color-1-50: oklch(97% 0.012 260);');
+  });
+
+  test('sends every choice the form offers', async ({ page }) => {
+    await open(page);
+    await hue(page).fill('terracotta');
+    await page.getByRole('button', { name: 'Add a hue' }).click();
+    await expect(hue(page, 2)).toBeFocused();
+    await hue(page, 2).fill('#336699');
+    await page.getByLabel('Mood').fill('warm');
+
+    await section(page, 'Token format').click();
+    await page.getByLabel('Tailwind CSS v4').check();
+    await section(page, 'Scale').click();
+    await page.getByLabel('A number of steps').check();
+    await page.getByLabel('Steps', { exact: true }).fill('3');
+    await section(page, 'Color system').click();
+    await page.getByLabel('hex', { exact: true }).check();
+    await section(page, 'Roles').click();
+    await page.getByRole('button', { name: 'Primary, secondary, tertiary' }).click();
+    await section(page, 'Schemes').click();
+    await page.getByLabel('Triadic').check();
+
+    await expect(section(page, 'Scale')).toContainText('50, 500, 950');
+    await expect(section(page, 'Roles')).toContainText('primary, secondary, tertiary');
+    await expect(section(page, 'Schemes')).toContainText('Monochromatic, Triadic');
+
+    const requestPromise = page.waitForRequest('/api/palettes');
+    await create(page).click();
+    const body = (await requestPromise).postDataJSON();
+    expect(body).toMatchObject({
+      hues: [{ name: 'terracotta' }, { value: '#336699' }],
+      mood: 'warm',
+      tokenFormat: 'tailwind',
+      colorSystem: 'hex',
+      scale: { kind: 'count', count: 3 },
+      roles: [{ role: 'primary' }, { role: 'secondary' }, { role: 'tertiary' }],
+      schemes: ['monochromatic', 'triadic'],
+      agent: 'custom',
+    });
+
+    await expect(page.getByText('Created 2 palettes.')).toBeVisible();
+    await expect(page.locator('pre code').first()).toContainText('@theme {');
+    await expect(page.locator('pre code').first()).toContainText('--color-primary-color-50: #');
+    await expect(page.getByText('primary', { exact: true }).first()).toBeVisible();
+  });
+
+  test('keeps the picker in step with the text', async ({ page }) => {
+    await open(page);
+    await hue(page).fill('rgb(255 0 0)');
+    await expect(page.getByLabel('Hue 1 picker')).toHaveValue('#ff0000');
+    await hue(page).fill('terracotta');
+    await expect(page.getByLabel('Hue 1 picker')).toHaveClass(/named/);
+  });
+
+  test('shows errors next to the fields and opens their sections', async ({ page }) => {
+    await open(page);
+    await section(page, 'Schemes').click();
+    await page.getByLabel('Monochromatic').uncheck();
+    await section(page, 'Schemes').click();
+    await section(page, 'Token format').click();
+    await page.getByLabel('Naming pattern').fill('color-[name]');
+    await section(page, 'Token format').click();
+
+    await create(page).click();
+    await expect(page.getByText('Choose at least one scheme')).toBeVisible();
+    await expect(page.getByText('Use a custom property name such as --color-[name]-[step]')).toBeVisible();
+    await expect(page.getByLabel('Naming pattern')).toBeFocused();
+    await expect(page.getByLabel('Naming pattern')).toHaveAttribute('aria-invalid', 'true');
+  });
+
+  test('can be used with only the keyboard', async ({ page }) => {
+    await open(page);
+    await hue(page).focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByText('Created 1 palette.')).toBeVisible();
+  });
+
+  test('can be cancelled', async ({ page }) => {
+    await open(page);
+    await page.getByLabel('Mood').fill('fake:slow');
+    await create(page).click();
+    await page.getByRole('button', { name: 'Cancel' }).click();
+    await expect(page.getByText('Cancelled.')).toBeVisible();
+    await expect(create(page)).toBeVisible();
+  });
+
+  test('shows agent errors with details', async ({ page }) => {
+    await open(page);
+    await page.getByLabel('Mood').fill('fake:bad');
+    await create(page).click();
+    const alert = page.getByRole('alert');
+    await expect(alert).toContainText('still had problems after one repair attempt');
+    await alert.getByText('Details').click();
+    await expect(alert.locator('pre')).toContainText('is missing steps 50');
+  });
+
+  test('copies the tokens', async ({ page, context }) => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    await open(page);
+    await create(page).click();
+    await page.getByRole('button', { name: 'Copy' }).click();
+    await expect(page.getByRole('button', { name: 'Copied' })).toBeVisible();
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toContain(':root {');
+  });
+
+  test('fits a phone screen without sideways scrolling', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await open(page);
+    await create(page).click();
+    await expect(page.getByText('Created 1 palette.')).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  });
+});

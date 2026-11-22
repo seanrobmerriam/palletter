@@ -50,6 +50,8 @@ export async function generatePalettes(request: PaletteRequest, options: Generat
   try {
     setStage('starting');
     session = await options.openSession();
+    // The agent is working from here, even if it doesn't stream its thoughts.
+    setStage('thinking');
 
     const promptOptions = {
       signal,

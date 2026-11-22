@@ -170,24 +170,31 @@ Notes:
 - MiniMax uses the settings from [MiniMax's Claude Code guide](https://platform.minimax.io/docs/token-plan/claude-code). It is covered by configuration tests, but not yet tested against the live MiniMax API.
 - An early real run had three steps over the sRGB limit. `SKILL.md` now tells the model to check the gamut table as part of its final check, and the next run needed no adjustments.
 
-### Phase 4: Generator UI
+### Phase 4: Generator UI ✅
 
-- [ ] Layout: inputs on the left and results on the right on wide screens, stacked on narrow screens.
-- [ ] Agent connection indicator with setup help when no agent is configured.
-- [ ] Step 1, hues: color picker, text input for values or names, add and remove hues, live swatch preview, and an optional mood field.
-- [ ] Steps 2–7: token format and naming pattern, scale (full, range, count), saturation, color system, roles with temperatures, and schemes. Every step after step 1 is collapsed by default and shows its current value.
-- [ ] Step 8: **Create** button. Shows progress while streaming, and becomes **Cancel** while running.
-- [ ] Validate on the client with the same zod schema, with messages next to the field.
-- [ ] Keyboard and screen reader support: real form controls, labels, visible focus, and `aria-live` for progress and errors.
+- [x] Layout: inputs on the left and results on the right on wide screens, stacked on narrow screens. No sideways scrolling on a phone.
+- [x] Agent picker with a connection indicator. Agents that aren't set up are listed but disabled, with the reason.
+- [x] Step 1, hues: color picker, text input for values or names (kept in step with the picker), add and remove hues, and an optional mood field.
+- [x] Steps 2–7: token format and naming pattern (with presets), scale (full, range, count), saturation (with a custom option), color system, roles with temperatures, and schemes. Every step after step 1 is collapsed by default and shows its current value.
+- [x] Step 8: **Create** button. Shows progress while streaming, and becomes **Cancel** while running.
+- [x] Validate on the client with the same zod schema (`src/lib/client/form.ts`), with messages next to the field. Sections with errors open, and the first invalid field gets focus.
+- [x] Keyboard and screen reader support: real form controls, labels, visible focus, and `aria-live` for progress and errors.
+- [x] Basic results, so the app is usable now: swatches for each color, the rationale, a scheme warning, and the tokens with a **Copy** button. Phase 5 builds on these.
 
 **Done when:** you can fill in only step 1, press Create, and see results, using only a keyboard.
 
+Notes:
+
+- Bun's server closes connections that are idle for 10 seconds, and real agents can think silently for longer. The palette stream now sends a keep-alive comment every 5 seconds, and the server's idle timeout is 60 seconds. An end-to-end test covers an agent that is silent for 11 seconds.
+- Tested in the browser with real Claude Code: an analogous terracotta palette took about 23 seconds.
+
 ### Phase 5: Results
 
-- [ ] One card per scheme with its rationale.
-- [ ] Swatch grid for each color, showing step, value in the chosen system, and a mark on gamut-mapped colors.
+- [x] One card per scheme with its rationale. (Phase 4)
+- [x] Swatch grid for each color, showing step, value in the chosen system, and a mark on gamut-mapped colors. (Phase 4)
 - [ ] Contrast badges and a "best text color" indicator on each swatch. A palette-level matrix you can expand.
-- [ ] Token code block with **Copy** (whole palette) and copy on click for a single token.
+- [x] Token code block with **Copy** for the whole palette. (Phase 4)
+- [ ] Copy on click for a single token.
 - [ ] Download as `.css` or `.json`.
 - [ ] Switch the color system or token format on a finished palette without calling the model again. Formatting runs on the client using the same `format/` code.
 - [ ] Preview: a small sample UI (buttons, card, text, alert) rendered with the palette, in light and dark.

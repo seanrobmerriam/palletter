@@ -65,3 +65,14 @@ test.describe('POST /api/palettes', () => {
     expect(events(await response.text()).at(-1)).toMatchObject({ type: 'error', code: 'not_configured' });
   });
 });
+
+test('keeps the stream open while the agent is silent for longer than the idle timeout', async ({ request }) => {
+  test.slow();
+  const response = await request.post('/api/palettes', {
+    data: { hues: [{ name: 'blue' }], mood: 'fake:pause' },
+    timeout: 60_000,
+  });
+  const body = await response.text();
+  expect(body).toContain(': keep-alive');
+  expect(events(body).at(-1)).toEqual({ type: 'done' });
+});

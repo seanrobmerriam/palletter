@@ -9,6 +9,7 @@
  * - bad: always missing a step.
  * - no-json: a reply with no JSON.
  * - slow: never answers until cancelled.
+ * - pause: says nothing for 11 seconds, then answers.
  * - permission: asks for permission first, and reports the outcome in the rationale.
  * - crash: exits in the middle of the prompt.
  * - auth: fails with auth_required.
@@ -28,7 +29,7 @@ const SCHEME_HUES: Record<string, number[]> = {
   tetradic: [0, 60, 180, 240],
 };
 
-type Mode = 'good' | 'bad-then-good' | 'bad' | 'no-json' | 'slow' | 'permission' | 'crash' | 'auth';
+type Mode = 'good' | 'bad-then-good' | 'bad' | 'no-json' | 'slow' | 'pause' | 'permission' | 'crash' | 'auth';
 
 function palettesFor(prompt: string, { dropStep = false, rationale = 'A fake palette.' } = {}) {
   const requestPart = prompt.slice(prompt.indexOf('# Palette request'));
@@ -104,6 +105,7 @@ const app = agent({ name: 'fake-agent' })
       return { stopReason: 'cancelled' as const };
     }
 
+    if (mode === 'pause') await new Promise((resolve) => setTimeout(resolve, 11_000));
     await think();
     if (mode === 'no-json') {
       await say("Sorry, I can't make palettes.");

@@ -22,7 +22,14 @@ export const ScaleSchema = z.discriminatedUnion('kind', [
       message: '"from" must be the same as or lighter than "to"',
       path: ['to'],
     }),
-  z.object({ kind: z.literal('count'), count: z.number().int().min(1).max(STEPS.length) }),
+  z.object({
+    kind: z.literal('count'),
+    count: z
+      .number({ message: 'Enter a number of steps' })
+      .int('Use a whole number of steps')
+      .min(1, 'Use at least 1 step')
+      .max(STEPS.length, `Use at most ${STEPS.length} steps`),
+  }),
 ]);
 export type Scale = z.infer<typeof ScaleSchema>;
 
@@ -71,7 +78,7 @@ export type TokenFormat = z.infer<typeof TokenFormatSchema>;
 export const SATURATIONS = ['vivid', 'pure', 'muted', 'pastel', 'earthy'] as const;
 export const SaturationSchema = z.union([
   z.enum(SATURATIONS),
-  z.object({ custom: z.string().trim().min(1).max(200) }),
+  z.object({ custom: z.string().trim().min(1, 'Describe the saturation you want').max(200, 'Keep it under 200 characters') }),
 ]);
 export type Saturation = z.infer<typeof SaturationSchema>;
 
@@ -105,27 +112,27 @@ export const HueSchema = z
       .min(1)
       .refine((v) => parse(v) !== undefined, 'Not a color value Palletter can read')
       .optional(),
-    name: z.string().trim().min(1).max(40).optional(),
+    name: z.string().trim().min(1).max(40, 'Keep color names under 40 characters').optional(),
   })
   .refine((h) => h.value !== undefined || h.name !== undefined, 'Enter a color value, a color name, or both');
 
 export const RoleSchema = z.object({
-  role: z.string().trim().min(1).max(30),
+  role: z.string().trim().min(1, 'Enter a role name').max(30, 'Keep role names under 30 characters'),
   temperature: z.enum(TEMPERATURES).optional(),
 });
 
 export const PaletteRequestSchema = z.object({
-  hues: z.array(HueSchema).min(1, 'Add at least one hue').max(8),
-  mood: z.string().trim().min(1).max(200).optional(),
+  hues: z.array(HueSchema).min(1, 'Add at least one hue').max(8, 'Use at most 8 hues'),
+  mood: z.string().trim().min(1).max(200, 'Keep the mood under 200 characters').optional(),
   tokenFormat: TokenFormatSchema.default('css'),
   namingPattern: NamingPatternSchema.default(DEFAULT_NAMING_PATTERN),
   scale: ScaleSchema.default({ kind: 'full' }),
   saturation: SaturationSchema.optional(),
   colorSystem: ColorSystemSchema.default('oklch'),
-  roles: z.array(RoleSchema).max(6).optional(),
+  roles: z.array(RoleSchema).max(6, 'Use at most 6 roles').optional(),
   schemes: z
     .array(SchemeSchema)
-    .min(1)
+    .min(1, 'Choose at least one scheme')
     .refine((s) => new Set(s).size === s.length, 'Each scheme can only be chosen once')
     .default(['monochromatic']),
 });
