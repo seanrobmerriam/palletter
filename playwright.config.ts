@@ -25,6 +25,12 @@ export default defineConfig({
   ],
   webServer: {
     command: `bun run build && PORT=${port} bun run start`,
+    // Use the fake ACP agent, and ignore any agent settings in a local .env.
+    env: {
+      PALLETTER_AGENT: 'custom',
+      PALLETTER_AGENT_COMMAND: 'bun test/fake-agent.ts',
+      MINIMAX_API_KEY: '',
+    },
     port,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
