@@ -124,6 +124,8 @@ export const RoleSchema = z.object({
 export const PaletteRequestSchema = z.object({
   hues: z.array(HueSchema).min(1, 'Add at least one hue').max(8, 'Use at most 8 hues'),
   mood: z.string().trim().min(1).max(200, 'Keep the mood under 200 characters').optional(),
+  /** Extra instructions, e.g. a refinement carried into a new session. */
+  note: z.string().trim().min(1).max(500, 'Keep the note under 500 characters').optional(),
   tokenFormat: TokenFormatSchema.default('css'),
   namingPattern: NamingPatternSchema.default(DEFAULT_NAMING_PATTERN),
   scale: ScaleSchema.default({ kind: 'full' }),

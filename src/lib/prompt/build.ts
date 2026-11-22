@@ -118,6 +118,10 @@ export function buildPrompt(request: PaletteRequest, skills: SkillFile[] = SKILL
 
   lines.push('## Names', '', namingGuidance(request), '');
 
+  if (request.note) {
+    lines.push('## Note from the user', '', `${quote(request.note)}. Follow it where it doesn't conflict with the rest of the request.`, '');
+  }
+
   if (decide.length) {
     lines.push(
       '## Decide yourself',

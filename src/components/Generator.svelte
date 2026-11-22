@@ -180,7 +180,12 @@
     }
   }
 
+  /** Bumped on every new generation, so late events from older refinements are ignored. */
+  let generation = 0;
+
   async function generate(body: SentRequest) {
+    generation++;
+    for (const r of results) r.controller?.abort();
     controller = new AbortController();
     running = true;
     results = [];
@@ -235,7 +240,10 @@
     item.status = note ? 'Refining…' : 'Regenerating…';
     item.controller = new AbortController();
     const signal = item.controller.signal;
+    const started = generation;
     const onEvent = (event: GenerateEvent) => {
+      // A new generation replaced these results; this refinement no longer applies.
+      if (started !== generation) return;
       applyEvent(event, (message) => (item.status = message), item.scheme);
       if (event.type === 'error') item.error = { code: event.code, message: event.message, detail: event.detail };
     };
@@ -246,11 +254,9 @@
         : ({ ok: false, status: 404, code: 'session_expired', message: '' } as const);
 
       if (!result.ok && result.code === 'session_expired') {
-        // Start again for this scheme. A note can't be applied without the earlier conversation,
-        // so pass it along as part of the mood.
+        // Start again for this scheme, carrying the note into the new session's request.
         item.status = 'The earlier session closed. Starting a new one…';
-        const body: SentRequest = { ...lastRequest, schemes: [item.scheme] };
-        if (note) body.mood = [lastRequest.mood, note].filter(Boolean).join('. ');
+        const body: SentRequest = { ...lastRequest, schemes: [item.scheme], ...(note ? { note } : {}) };
         result = await postForEvents('/api/palettes', body, signal, onEvent);
       }
       if (!result.ok) item.error = { code: result.code ?? 'error', message: result.message, detail: result.detail };

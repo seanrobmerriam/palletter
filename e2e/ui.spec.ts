@@ -222,8 +222,31 @@ test.describe('generator form', () => {
     await page.getByRole('button', { name: 'Refine…' }).click();
     await page.getByLabel('What should change?').fill('brighter');
     await page.getByRole('button', { name: 'Refine', exact: true }).click();
-    expect((await retry).postDataJSON()).toMatchObject({ schemes: ['monochromatic'], mood: 'calm. brighter' });
+    expect((await retry).postDataJSON()).toMatchObject({ schemes: ['monochromatic'], mood: 'calm', note: 'brighter' });
     await expect(page.getByRole('alert')).toHaveCount(0);
+  });
+
+  test('ignores a refinement that finishes after a new generation started', async ({ page }) => {
+    await open(page);
+    await create(page).click();
+    await expect(page.getByText('Created 1 palette.')).toBeVisible();
+
+    // Hold the refinement's response until the new generation has finished.
+    let release: () => void = () => {};
+    const held = new Promise<void>((resolve) => (release = resolve));
+    await page.route('**/api/palettes/refine', async (route) => {
+      const response = await route.fetch();
+      const body = await response.text();
+      await held;
+      await route.fulfill({ response, body }).catch(() => {});
+    });
+    await page.getByRole('button', { name: 'Regenerate' }).click();
+    await create(page).click();
+    await expect(page.getByText('Created 1 palette.')).toBeVisible();
+    release();
+    await page.waitForTimeout(300);
+    await expect(page.getByText('A different take.')).toHaveCount(0);
+    await expect(page.getByText('A fake palette.')).toBeVisible();
   });
 
   test('fits a phone screen without sideways scrolling', async ({ page }) => {
