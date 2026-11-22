@@ -21,7 +21,7 @@ This plan takes Palletter from the current Astro starter to a working v1, as des
 Browser (Astro page + UI island)
    │  POST /api/palettes  (PaletteRequest JSON)
    ▼
-Astro server endpoint (Node adapter)
+Astro server endpoint (Bun adapter)
    ├─ prompt/   build the prompt from the request + skills
    ├─ acp/      spawn the agent, open a session, send the prompt, stream updates
    ├─ prompt/   parse and validate the response (schema), retry once on failure
@@ -36,7 +36,7 @@ Browser renders swatches, contrast badges, and token code blocks
 
 | Decision | Choice | Why |
 | -------- | ------ | --- |
-| Rendering | Astro with `output: 'server'` and `@astrojs/node` | ACP needs a server process to spawn the agent and talk to it over stdio. The browser can't do this. |
+| Rendering | Astro with `output: 'server'` and `@igloczek/astro-bun-adapter` | ACP needs a server process to spawn the agent and talk to it over stdio. The browser can't do this. Bun's native server and `Bun.spawn` keep it simple and fast. |
 | ACP client | The official TypeScript ACP SDK | Handles JSON-RPC framing, session setup, and update types. |
 | Agent capabilities | Advertise no file system or terminal access | The agent only needs to think and answer. Reject any permission request. |
 | Source of truth for colors | The model returns every color in **oklch**. Palletter converts to the other systems. | Models are unreliable at exact color math. Converting in code makes values exact and consistent across systems. |
@@ -44,10 +44,10 @@ Browser renders swatches, contrast badges, and token code blocks
 | Color math | [culori](https://culorijs.org) | Covers oklch, rgb, hsl, hex, gamut mapping, and WCAG contrast. Small and tree-shakeable. |
 | CMYK | Naive conversion from sRGB, labeled as approximate, with a hex fallback | Browsers don't support CMYK in CSS. Accurate CMYK needs an ICC profile, which is out of scope. |
 | Validation | [zod](https://zod.dev) | One schema for the request, the response, and TypeScript types. |
-| UI interactivity | One UI island for the form and results (Svelte recommended), static Astro for the rest | The form has a lot of dependent state. Everything else can ship zero JavaScript. |
+| UI interactivity | One Svelte island for the form and results, static Astro for the rest | The form has a lot of dependent state. Everything else can ship zero JavaScript. |
 | Styling | Plain CSS in the existing cascade layers (`base`, `patterns`, `components`, `utilities`) | The layer setup is already in place. Palletter's own UI theme can be generated with Palletter. |
 | Tests | Vitest for logic, Playwright for end-to-end | Playwright runs against a fake ACP agent so tests are fast and deterministic. |
-| Package manager | Bun (there's already a `bun.lock`) | Keep what's there. |
+| Runtime and package manager | Bun | There's already a `bun.lock`, and the server runs on Bun. |
 
 ## Data model
 
@@ -92,17 +92,19 @@ Defaults when the user skips a step: CSS custom properties with `--color-[name]-
 
 Each phase ends with something you can run and check. Phases 2 and 3 can run in parallel once phase 1 is done.
 
-### Phase 0: Project setup
+### Phase 0: Project setup ✅
 
-- [ ] Rename the package from `14-astro-css` to `palletter`.
-- [ ] Set the page title and replace the Astro welcome page with an empty app shell.
-- [ ] Add `@astrojs/node` and set `output: 'server'`.
-- [ ] Add Vitest, Playwright, and a `test` script.
-- [ ] Add the UI island integration (Svelte, unless decided otherwise).
-- [ ] Add CI (GitHub Actions): typecheck (`astro check`), unit tests, and build on every pull request.
-- [ ] Fill in `reset.css` and `base.css` with a minimal reset and base typography.
+- [x] Rename the package from `14-astro-css` to `palletter`.
+- [x] Set the page title and replace the Astro welcome page with an empty app shell.
+- [x] Add `@igloczek/astro-bun-adapter` and set `output: 'server'`.
+- [x] Add Vitest, Playwright, and `test`, `test:e2e`, and `check` scripts.
+- [x] Add the Svelte integration, with a placeholder generator island.
+- [x] Add CI (GitHub Actions): typecheck (`astro check`), unit tests, build, and end-to-end tests on every pull request.
+- [x] Fill in `reset.css` and `base.css` with a minimal reset, base typography, and a placeholder light and dark theme.
 
 **Done when:** `bun run dev`, `bun run test`, and `bun run build` all succeed, and CI is green.
+
+Notes: `astro check` doesn't support TypeScript 7 yet, so TypeScript is pinned to 6.
 
 ### Phase 1: Domain model and color engine
 
@@ -211,7 +213,6 @@ The skills are the instructions that make the model good at this. They're versio
 ## Open questions
 
 1. **Hosted version.** Should Palletter ever run as a hosted site? If so, it would need a server-side model connection (for example, the Claude API) as an alternative to ACP, plus accounts and rate limits. This plan assumes local-only for v1.
-2. **UI framework.** Svelte is recommended for the island. Vanilla TypeScript with web components also works and adds no dependencies, but the form state will take more code.
-3. **Contrast standard.** v1 uses WCAG 2 ratios. Should Palletter also show APCA (the proposed WCAG 3 method) scores?
-4. **Extra token formats.** Are SCSS variables, Tailwind v3 config, or Figma variables needed for v1?
-5. **Naming.** The original README title used "Paletter". This plan assumes the name is "Palletter", matching the repository.
+2. **Contrast standard.** v1 uses WCAG 2 ratios. Should Palletter also show APCA (the proposed WCAG 3 method) scores?
+3. **Extra token formats.** Are SCSS variables, Tailwind v3 config, or Figma variables needed for v1?
+4. **Naming.** The original README title used "Paletter". This plan assumes the name is "Palletter", matching the repository.
