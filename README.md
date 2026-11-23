@@ -244,7 +244,7 @@ If the reply is good, this prints the tokens. If not, it lists the problems and 
 
 ### UI components
 
-The UI uses [SV5UI](https://sv5ui.vercel.app) components with Tailwind CSS 4, inside Astro's Svelte islands. Theme colors come from SV5UI's tokens (`bg-surface`, `text-on-surface`, `border-outline-variant`, `bg-primary`, and so on); see [SV5UI theming](https://sv5ui.vercel.app/docs/theming) to change them in `src/styles/global.css`.
+The UI uses [SV5UI](https://sv5ui.vercel.app) components with Tailwind CSS 4, inside Astro's Svelte islands. Components use SV5UI's default styles: Palletter doesn't set their `variant`, `color`, `size`, or `ui` slot classes, except an Alert's color for errors and warnings and one functional fix on the hue input. Palletter's own classes only lay out the page. Theme colors come from SV5UI's tokens (`bg-surface`, `text-on-surface`, `border-outline-variant`, `bg-primary`, and so on); see [SV5UI theming](https://sv5ui.vercel.app/docs/theming) to change them in `src/styles/global.css`.
 
 SV5UI is built for SvelteKit, so Palletter adds two small pieces to run it on Astro:
 

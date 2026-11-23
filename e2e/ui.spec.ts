@@ -228,6 +228,9 @@ test.describe('generator form', () => {
     await expect(page.getByRole('tab', { name: 'Contrast' })).toHaveAttribute('aria-selected', 'true');
     await expect(page.getByRole('tab', { name: 'Contrast' })).toBeFocused();
     await expect(page.locator('td')).toHaveCount(121);
+    // The caption is for screen readers only.
+    await expect(page.locator('caption')).toHaveCSS('position', 'absolute');
+    await expect(page.locator('caption')).toHaveCSS('width', '1px');
     await expect(page.locator('td').first()).toHaveAttribute('title', /color 1 50 on color 1 50: 1\.00:1, Fails/);
   });
 

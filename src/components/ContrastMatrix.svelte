@@ -22,19 +22,19 @@
 
 <div class="controls">
   <span id="{id}-text-label">Text</span>
-  <Select items={colorItems} bind:value={textName} size="sm" aria-labelledby="{id}-text-label" class="w-36" />
+  <div class="w-40"><Select items={colorItems} bind:value={textName} aria-labelledby="{id}-text-label" /></div>
   <span id="{id}-bg-label">on background</span>
-  <Select items={colorItems} bind:value={backgroundName} size="sm" aria-labelledby="{id}-bg-label" class="w-36" />
+  <div class="w-40"><Select items={colorItems} bind:value={backgroundName} aria-labelledby="{id}-bg-label" /></div>
 </div>
 
 <div class="scroll">
   <table>
-    <caption class="visually-hidden">
+    <caption class="sr-only">
       Contrast of {text.label} text (columns) on {background.label} backgrounds (rows)
     </caption>
     <thead>
       <tr>
-        <th scope="col"><span class="visually-hidden">Background step</span></th>
+        <th scope="col"><span class="sr-only">Background step</span></th>
         {#each text.swatches as fg (fg.step)}<th scope="col">{fg.step}</th>{/each}
       </tr>
     </thead>

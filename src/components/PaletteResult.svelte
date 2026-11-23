@@ -96,15 +96,12 @@
       <h3 id="{id}-title" class="text-base font-semibold">{SCHEME_LABELS[palette.scheme]}</h3>
       <div class="flex gap-2">
         {#if busy}
-          <Button label="Cancel" size="sm" variant="outline" color="surface" onclick={onCancel} />
+          <Button label="Cancel" onclick={onCancel} />
         {:else}
-          <Button label="Regenerate" leadingIcon="lucide:refresh-cw" size="sm" variant="outline" color="surface" onclick={onRegenerate} />
+          <Button label="Regenerate" leadingIcon="lucide:refresh-cw" onclick={onRegenerate} />
           <Button
             label="Refine…"
             leadingIcon="lucide:wand-sparkles"
-            size="sm"
-            variant="outline"
-            color="surface"
             onclick={startRefine}
             aria-expanded={refining}
           />
@@ -117,7 +114,7 @@
       </p>
     {/if}
     {#if error}
-      <Alert color="error" variant="soft" icon="lucide:circle-alert" title={error.message} role="alert">
+      <Alert color="error" icon="lucide:circle-alert" title={error.message} role="alert">
         {#snippet descriptionSlot()}
           {#if error?.detail}
             <details>
@@ -136,10 +133,9 @@
           placeholder="e.g. make the secondary warmer"
           aria-label="What should change?"
           maxlength={500}
-          class="flex-1"
         />
         <Button type="submit" label="Refine" disabled={!note.trim()} />
-        <Button label="Close" variant="ghost" color="surface" onclick={() => (refining = false)} />
+        <Button label="Close" onclick={() => (refining = false)} />
       </form>
     {/if}
     {#if palette.rationale}<p class="rationale text-on-surface-variant">{palette.rationale}</p>{/if}
@@ -153,7 +149,7 @@
   {#each palette.colors as color (color.name)}
     <section class="color min-w-0" aria-label={color.label}>
       <h4 class="mb-2 flex items-center gap-2 text-sm font-semibold">
-        {color.label}{#if color.role}<Badge label={color.role} variant="soft" color="surface" size="sm" />{/if}
+        {color.label}{#if color.role}<Badge label={color.role} />{/if}
       </h4>
       <ul class="swatches">
         {#each color.swatches as swatch (swatch.step)}
@@ -184,28 +180,22 @@
     {#if adjusted}* Adjusted to fit the sRGB colors most screens can show.{/if}
   </p>
 
-  <Tabs items={TABS} defaultValue="tokens" variant="link" aria-label="{SCHEME_LABELS[palette.scheme]} details" class="min-w-0" ui={{ content: 'pt-4 min-w-0' }}>
+  <Tabs items={TABS} defaultValue="tokens" aria-label="{SCHEME_LABELS[palette.scheme]} details" >
     {#snippet body({ item })}
       {#if item.value === 'tokens'}
         {#if formatted.error}
-          <Alert color="error" variant="soft" icon="lucide:circle-alert" title={formatted.error} role="alert" />
+          <Alert color="error" icon="lucide:circle-alert" title={formatted.error} role="alert" />
         {:else}
           <div class="tokens overflow-hidden rounded-md border border-outline-variant">
             <div class="flex justify-end gap-2 border-b border-outline-variant px-3 py-2">
               <Button
                 label={copied === 'all' ? 'Copied' : 'Copy'}
                 leadingIcon="lucide:copy"
-                size="xs"
-                variant="outline"
-                color="surface"
                 onclick={() => copy(formatted.tokens!, 'all')}
               />
               <Button
                 label="Download .{FORMAT_EXTENSIONS[format]}"
                 leadingIcon="lucide:download"
-                size="xs"
-                variant="outline"
-                color="surface"
                 onclick={download}
               />
             </div>

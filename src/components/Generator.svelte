@@ -359,19 +359,17 @@
   }
 </script>
 <div class="grid gap-6 lg:grid-cols-[minmax(24rem,2fr)_3fr] lg:items-start" data-hydrated={hydrated}>
-  <Card class="min-w-0 lg:sticky lg:top-4" ui={{ body: 'p-0 sm:p-0' }}>
-    <form id="{id}-form" class="grid gap-5 p-4 sm:p-6" aria-labelledby="{id}-inputs-heading" onsubmit={submit} novalidate>
+  <Card class="min-w-0 lg:sticky lg:top-4">
+    <form id="{id}-form" class="grid gap-5" aria-labelledby="{id}-inputs-heading" onsubmit={submit} novalidate>
       <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <h2 id="{id}-inputs-heading" class="text-lg font-semibold">Describe your palette</h2>
         <div class="flex items-center gap-2">
           <Select
             items={agentItems}
             bind:value={agentId}
-            size="sm"
             aria-label="Agent"
             disabled={running || agents.length === 0}
             placeholder="Loading agents…"
-            class="min-w-40"
           />
           <span class="agent-status flex items-center gap-1.5 text-sm" data-state={agentStatus.state} role="status">
             <span
@@ -401,13 +399,13 @@
           {@const named = hue.text.trim() !== '' && !toPickerHex(hue.text)}
           <div class="flex items-center gap-2">
             <FormField ariaId="{id}-hue-{i}" error={errorFor(errors, `hues.${i}`)} class="flex-1">
+              <!-- SV5UI's leading slot ignores clicks by default, which would block the color picker, so it's re-enabled here. -->
               <Input
                 id="{id}-hue-{i}"
                 value={hue.text}
                 aria-label="Hue {i + 1}: color value or name"
                 autocomplete="off"
                 spellcheck="false"
-                class="w-full"
                 ui={{ leading: 'pointer-events-auto ps-2', base: 'ps-10' }}
                 oninput={(e: Event) => {
                   hue.text = (e.currentTarget as HTMLInputElement).value;
@@ -434,8 +432,6 @@
             </FormField>
             <Button
               icon="lucide:x"
-              variant="ghost"
-              color="surface"
               aria-label="Remove hue {i + 1}"
               disabled={form.hues.length === 1}
               onclick={() => removeHue(i)}
@@ -444,11 +440,11 @@
         {/each}
         {#if errors.hues}<p class="text-sm text-error">{errors.hues}</p>{/if}
         <div>
-          <Button label="Add a hue" leadingIcon="lucide:plus" variant="outline" color="surface" size="sm" onclick={addHue} disabled={form.hues.length >= 8} />
+          <Button label="Add a hue" leadingIcon="lucide:plus" onclick={addHue} disabled={form.hues.length >= 8} />
         </div>
 
         <FormField label="Mood" hint="Optional" error={errors.mood} ariaId="{id}-mood">
-          <Input bind:value={form.mood} placeholder="e.g. calm, trustworthy, a little playful" class="w-full" />
+          <Input bind:value={form.mood} placeholder="e.g. calm, trustworthy, a little playful" />
         </FormField>
       </fieldset>
 
@@ -457,8 +453,6 @@
         type="multiple"
         items={SECTIONS}
         bind:value={openSections}
-        class="border-t border-outline-variant"
-        ui={{ item: 'border-b border-outline-variant', trigger: 'py-3' }}
       >
         {#snippet label({ item })}
           {@const section = SECTIONS.find((s) => s.value === item.value)!}
@@ -479,11 +473,11 @@
                   error={errors.namingPattern}
                   description="Use [name], [color], [mood], [role], and [step]."
                 >
-                  <Input bind:value={form.namingPattern} spellcheck="false" class="w-full font-mono" />
+                  <Input bind:value={form.namingPattern} spellcheck="false" />
                 </FormField>
                 <div class="flex flex-wrap gap-1.5" role="group" aria-label="Naming pattern presets">
                   {#each PATTERN_PRESETS as preset}
-                    <Button label={preset} size="xs" variant="soft" color="surface" class="font-mono" onclick={() => (form.namingPattern = preset)} />
+                    <Button label={preset} onclick={() => (form.namingPattern = preset)} />
                   {/each}
                 </div>
               {:else if form.tokenFormat === 'tailwind'}
@@ -497,19 +491,19 @@
               {#if form.scaleKind === 'range'}
                 <div class="flex flex-wrap items-end gap-2">
                   <FormField label="From" ariaId="{id}-from">
-                    <Select items={STEP_ITEMS} bind:value={form.from} class="w-28" />
+                    <Select items={STEP_ITEMS} bind:value={form.from} />
                   </FormField>
                   <FormField label="To" ariaId="{id}-to" error={errors['scale.to']}>
-                    <Select items={STEP_ITEMS} bind:value={form.to} class="w-28" />
+                    <Select items={STEP_ITEMS} bind:value={form.to} />
                   </FormField>
                 </div>
               {:else if form.scaleKind === 'count'}
                 <FormField label="Steps" ariaId="{id}-count" error={errorFor(errors, 'scale')}>
-                  <InputNumber bind:value={form.count} min={1} max={STEPS.length} class="w-36" />
+                  <InputNumber bind:value={form.count} min={1} max={STEPS.length} />
                 </FormField>
               {/if}
             {:else if item.value === 'saturation'}
-              <FormField label="Saturation" ariaId="{id}-saturation" ui={{ label: 'sr-only' }}>
+              <FormField label="Saturation" ariaId="{id}-saturation">
                 <Select
                   items={SATURATION_ITEMS}
                   bind:value={() => form.saturation || 'auto', (v) => (form.saturation = (v === 'auto' ? '' : v) as typeof form.saturation)}
@@ -518,7 +512,7 @@
               </FormField>
               {#if form.saturation === 'custom'}
                 <FormField label="Describe it" ariaId="{id}-custom-saturation" error={errorFor(errors, 'saturation')}>
-                  <Input bind:value={form.customSaturation} placeholder="e.g. dusty, like faded fabric" class="w-full" />
+                  <Input bind:value={form.customSaturation} placeholder="e.g. dusty, like faded fabric" />
                 </FormField>
               {/if}
             {:else if item.value === 'system'}
@@ -531,22 +525,23 @@
               {#each form.roles as role, i (i)}
                 <div class="flex items-start gap-2">
                   <FormField ariaId="{id}-role-{i}" error={errorFor(errors, `roles.${i}`)} class="flex-1">
-                    <Input id="{id}-role-{i}" bind:value={role.role} placeholder="e.g. primary" aria-label="Role {i + 1}" class="w-full" />
+                    <Input id="{id}-role-{i}" bind:value={role.role} placeholder="e.g. primary" aria-label="Role {i + 1}" />
                   </FormField>
-                  <Select
-                    items={TEMPERATURE_ITEMS}
-                    bind:value={() => role.temperature || 'any', (v) => (role.temperature = (v === 'any' ? '' : v) as typeof role.temperature)}
-                    aria-label="Role {i + 1} temperature"
-                    class="w-40"
-                  />
-                  <Button icon="lucide:x" variant="ghost" color="surface" aria-label="Remove role {i + 1}" onclick={() => form.roles.splice(i, 1)} />
+                  <div class="w-44 shrink-0">
+                    <Select
+                      items={TEMPERATURE_ITEMS}
+                      bind:value={() => role.temperature || 'any', (v) => (role.temperature = (v === 'any' ? '' : v) as typeof role.temperature)}
+                      aria-label="Role {i + 1} temperature"
+                    />
+                  </div>
+                  <Button icon="lucide:x" aria-label="Remove role {i + 1}" onclick={() => form.roles.splice(i, 1)} />
                 </div>
               {/each}
               {#if errorFor(errors, 'roles')}<p class="text-sm text-error">{errorFor(errors, 'roles')}</p>{/if}
               <div class="flex flex-wrap gap-2">
-                <Button label="Add a role" leadingIcon="lucide:plus" variant="outline" color="surface" size="sm" onclick={() => addRole()} disabled={form.roles.length >= 6} />
+                <Button label="Add a role" leadingIcon="lucide:plus" onclick={() => addRole()} disabled={form.roles.length >= 6} />
                 {#if form.roles.length === 0}
-                  <Button label="Primary, secondary, tertiary" variant="soft" color="surface" size="sm" onclick={useStandardRoles} />
+                  <Button label="Primary, secondary, tertiary" onclick={useStandardRoles} />
                 {/if}
               </div>
             {:else if item.value === 'schemes'}
@@ -556,7 +551,6 @@
                   items={SCHEME_ITEMS}
                   bind:value={() => form.schemes, (v) => (form.schemes = v as Scheme[])}
                   aria-label="Schemes"
-                  ui={{ fieldset: 'grid grid-cols-1 gap-2 sm:grid-cols-2' }}
                 />
               </FormField>
             {/if}
@@ -567,13 +561,11 @@
       <!-- 8. Create -->
       <div class="flex justify-end">
         {#if running}
-          <Button label="Cancel" variant="outline" color="surface" size="lg" class="min-w-32 justify-center" onclick={cancel} />
+          <Button label="Cancel" onclick={cancel} />
         {:else}
           <Button
             type="submit"
             label="Create"
-            size="lg"
-            class="min-w-32 justify-center"
             disabled={selectedAgent ? !selectedAgent.available : false}
           />
         {/if}
@@ -581,7 +573,7 @@
     </form>
   </Card>
 
-  <Card class="min-w-0" ui={{ body: 'grid gap-4 p-4 sm:p-6' }}>
+  <Card class="min-w-0">
     <section class="grid min-w-0 gap-4" aria-labelledby="{id}-results-heading">
       <h2 id="{id}-results-heading" class="text-lg font-semibold">Palettes</h2>
 
@@ -591,7 +583,7 @@
       </p>
 
       {#if failure}
-        <Alert color="error" variant="soft" icon="lucide:circle-alert" title={failure.message} role="alert">
+        <Alert color="error" icon="lucide:circle-alert" title={failure.message} role="alert">
           {#snippet descriptionSlot()}
             {#if failure?.detail}
               <details class="mt-1">
@@ -604,7 +596,7 @@
       {/if}
 
       {#if warnings.length}
-        <Alert color="warning" variant="soft" icon="lucide:triangle-alert">
+        <Alert color="warning" icon="lucide:triangle-alert">
           {#snippet descriptionSlot()}
             <ul class="warnings list-disc pl-4">
               {#each warnings as warning}<li>{warning}</li>{/each}
@@ -616,9 +608,9 @@
       {#if results.length}
         <div class="flex flex-wrap items-center gap-2 text-sm" role="group" aria-label="Display options">
           <span id="{id}-view-format-label">Show tokens as</span>
-          <Select items={VIEW_FORMAT_ITEMS} bind:value={view.format} size="sm" aria-labelledby="{id}-view-format-label" class="w-52" />
+          <div class="w-56"><Select items={VIEW_FORMAT_ITEMS} bind:value={view.format} aria-labelledby="{id}-view-format-label" /></div>
           <span id="{id}-view-system-label">in</span>
-          <Select items={SYSTEM_ITEMS} bind:value={view.system} size="sm" aria-labelledby="{id}-view-system-label" class="w-28" />
+          <div class="w-32"><Select items={SYSTEM_ITEMS} bind:value={view.system} aria-labelledby="{id}-view-system-label" /></div>
         </div>
       {/if}
 
