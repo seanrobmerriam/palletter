@@ -41,20 +41,20 @@
   .previews {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
-    gap: var(--space-3);
+    gap: 0.75rem;
   }
 
   .preview {
-    padding: var(--space-4);
-    border-radius: var(--radius);
+    padding: 1rem;
+    border-radius: var(--radius-md, 0.375rem);
     background: var(--p-background);
   }
 
   .card {
     display: grid;
-    gap: var(--space-3);
-    padding: var(--space-4);
-    border-radius: var(--radius);
+    gap: 0.75rem;
+    padding: 1rem;
+    border-radius: var(--radius-md, 0.375rem);
     background: var(--p-surface);
     border: 1px solid var(--p-border);
     color: var(--p-text);
@@ -82,8 +82,8 @@
   }
 
   .alert {
-    padding: var(--space-2) var(--space-3);
-    border-radius: var(--radius);
+    padding: 0.5rem 0.75rem;
+    border-radius: var(--radius-md, 0.375rem);
     background: var(--p-accent-soft);
     color: var(--p-on-accent-soft);
     font-size: 0.8125rem;
@@ -92,13 +92,13 @@
   .buttons {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--space-2);
+    gap: 0.5rem;
     align-items: center;
   }
 
   .button {
-    padding: var(--space-1) var(--space-3);
-    border-radius: var(--radius);
+    padding: 0.25rem 0.75rem;
+    border-radius: var(--radius-md, 0.375rem);
     font-size: 0.8125rem;
     font-weight: 600;
   }
@@ -114,7 +114,7 @@
   }
 
   .badge {
-    padding: 0 var(--space-2);
+    padding: 0 0.5rem;
     border-radius: 999px;
     background: var(--p-accent);
     color: var(--p-on-accent);
@@ -123,8 +123,8 @@
   }
 
   .note {
-    margin-top: var(--space-2);
+    margin-top: 0.5rem;
     font-size: 0.8125rem;
-    color: var(--color-text-muted);
+    color: var(--color-on-surface-variant);
   }
 </style>

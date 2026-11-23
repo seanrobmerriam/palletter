@@ -1,5 +1,19 @@
 <script lang="ts">
+  import '../lib/client/icons';
   import { onMount, tick } from 'svelte';
+  import {
+    Accordion,
+    Alert,
+    Badge,
+    Button,
+    Card,
+    CheckboxGroup,
+    FormField,
+    Input,
+    InputNumber,
+    RadioGroup,
+    Select,
+  } from 'sv5ui';
   import {
     errorFor,
     initialFormState,
@@ -43,7 +57,8 @@
 
   let form = $state<FormState>(initialFormState());
   let errors = $state<FieldErrors>({});
-  let open = $state({ format: false, scale: false, saturation: false, system: false, roles: false, schemes: false });
+  /** Which collapsed steps are open. */
+  let openSections = $state<string[]>([]);
 
   let agents = $state<Agent[]>([]);
   let agentId = $state('');
@@ -78,7 +93,56 @@
     ['custom', 'Something else…'],
   ] as const;
 
+  const SATURATION_ITEMS = SATURATION_OPTIONS.map(([value, label]) => ({ value: value || 'auto', label }));
+  const TEMPERATURE_ITEMS = [
+    { value: 'any', label: 'Any temperature' },
+    { value: 'warm', label: 'Warm' },
+    { value: 'cool', label: 'Cool' },
+    { value: 'neutral', label: 'Neutral' },
+  ];
+  const STEP_ITEMS = STEPS.map((step) => ({ value: step, label: step }));
+  const FORMAT_ITEMS = [
+    { value: 'css', label: 'CSS custom properties' },
+    { value: 'tailwind', label: 'Tailwind CSS v4 @theme' },
+    { value: 'dtcg', label: 'Design Tokens JSON' },
+  ];
+  const VIEW_FORMAT_ITEMS = [
+    { value: 'css', label: 'CSS custom properties' },
+    { value: 'tailwind', label: 'Tailwind CSS v4' },
+    { value: 'dtcg', label: 'Design Tokens JSON' },
+  ];
+  const SCALE_ITEMS = [
+    { value: 'full', label: 'Full scale, 50–950' },
+    { value: 'range', label: 'A range of steps' },
+    { value: 'count', label: 'A number of steps' },
+  ];
+  const SYSTEM_ITEMS = COLOR_SYSTEMS.map((system) => ({ value: system, label: system }));
+  const SCHEME_ITEMS = SCHEMES.map((scheme) => ({ value: scheme, label: SCHEME_LABELS[scheme] }));
+
+  type Section = 'format' | 'scale' | 'saturation' | 'system' | 'roles' | 'schemes';
+  const SECTIONS: { value: Section; label: string; number: number }[] = [
+    { value: 'format', label: 'Token format', number: 2 },
+    { value: 'scale', label: 'Scale', number: 3 },
+    { value: 'saturation', label: 'Saturation', number: 4 },
+    { value: 'system', label: 'Color system', number: 5 },
+    { value: 'roles', label: 'Roles', number: 6 },
+    { value: 'schemes', label: 'Schemes', number: 7 },
+  ];
+
   const PATTERN_PRESETS = ['--color-[name]-[step]', '--brand-[color]-[step]', '--color-[mood]-[step]', '--color-[role]-[step]'];
+
+  const agentItems = $derived(
+    agents.map((a) => ({ value: a.id, label: a.label, disabled: !a.available, ...(a.unavailableReason ? { description: a.unavailableReason } : {}) })),
+  );
+
+  // Check the agent whenever a different one is chosen.
+  let checkedAgent = '';
+  $effect(() => {
+    if (agentId && checkedAgent && agentId !== checkedAgent) {
+      checkedAgent = agentId;
+      checkAgent();
+    }
+  });
 
   onMount(() => {
     hydrated = true;
@@ -91,6 +155,7 @@
       const body = (await response.json()) as { defaultAgent: string; agents: Agent[] };
       agents = body.agents;
       agentId = body.defaultAgent;
+      checkedAgent = agentId;
       await checkAgent();
     } catch {
       agentStatus = { state: 'error', message: 'Could not reach the Palletter server.' };
@@ -134,7 +199,7 @@
   }
 
   /** Which collapsible section a field error belongs to. */
-  function sectionFor(path: string): keyof typeof open | undefined {
+  function sectionFor(path: string): Section | undefined {
     if (path.startsWith('namingPattern') || path.startsWith('tokenFormat')) return 'format';
     if (path.startsWith('scale')) return 'scale';
     if (path.startsWith('saturation')) return 'saturation';
@@ -152,9 +217,11 @@
       errors = result.errors;
       for (const path of Object.keys(errors)) {
         const section = sectionFor(path);
-        if (section) open[section] = true;
+        if (section && !openSections.includes(section)) openSections = [...openSections, section];
       }
       await tick();
+      // Sections animate open; wait a frame so their controls can take focus.
+      await new Promise((resolve) => requestAnimationFrame(resolve));
       document.querySelector<HTMLElement>(`#${CSS.escape(id)}-form [aria-invalid="true"]`)?.focus();
       return;
     }
@@ -269,608 +336,335 @@
     }
   }
 </script>
-
-<div class="generator" data-hydrated={hydrated}>
-  <form id="{id}-form" class="panel" aria-labelledby="{id}-inputs-heading" onsubmit={submit} novalidate>
-    <div class="panel-heading">
-      <h2 id="{id}-inputs-heading">Describe your palette</h2>
-      <div class="agent">
-        <label for="{id}-agent" class="visually-hidden">Agent</label>
-        <select id="{id}-agent" bind:value={agentId} onchange={checkAgent} disabled={running || agents.length === 0}>
-          {#each agents as agent (agent.id)}
-            <option value={agent.id} disabled={!agent.available} title={agent.unavailableReason}>{agent.label}</option>
-          {/each}
-        </select>
-        <span class="agent-status" data-state={agentStatus.state} role="status">
-          <span class="dot" aria-hidden="true"></span>
-          {agentStatus.state === 'loading' ? 'Loading agents…' : agentStatus.message}
-        </span>
+<div class="grid gap-6 lg:grid-cols-[minmax(24rem,2fr)_3fr] lg:items-start" data-hydrated={hydrated}>
+  <Card class="min-w-0 lg:sticky lg:top-4" ui={{ body: 'p-0 sm:p-0' }}>
+    <form id="{id}-form" class="grid gap-5 p-4 sm:p-6" aria-labelledby="{id}-inputs-heading" onsubmit={submit} novalidate>
+      <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <h2 id="{id}-inputs-heading" class="text-lg font-semibold">Describe your palette</h2>
+        <div class="flex items-center gap-2">
+          <Select
+            items={agentItems}
+            bind:value={agentId}
+            size="sm"
+            aria-label="Agent"
+            disabled={running || agents.length === 0}
+            placeholder="Loading agents…"
+            class="min-w-40"
+          />
+          <span class="agent-status flex items-center gap-1.5 text-sm" data-state={agentStatus.state} role="status">
+            <span
+              class="size-2 rounded-full {agentStatus.state === 'ready'
+                ? 'bg-success'
+                : agentStatus.state === 'error'
+                  ? 'bg-error'
+                  : 'animate-pulse bg-on-surface-variant'}"
+              aria-hidden="true"
+            ></span>
+            <span class={agentStatus.state === 'error' ? 'text-error' : 'text-on-surface-variant'}>
+              {agentStatus.state === 'loading' ? 'Loading agents…' : agentStatus.message}
+            </span>
+          </span>
+        </div>
       </div>
-    </div>
 
-    <!-- 1. Hues -->
-    <fieldset class="step">
-      <legend><span class="num">1</span> Hues</legend>
-      <p class="hint">A color value (hex, rgb, oklch…) or a name like "terracotta". Add more than one if you like.</p>
-      {#each form.hues as hue, i (i)}
-        <div class="hue-row">
-          <input
-            type="color"
-            class:named={hue.text.trim() !== '' && !toPickerHex(hue.text)}
-            aria-label="Hue {i + 1} picker"
-            title={hue.text.trim() !== '' && !toPickerHex(hue.text) ? 'A named color: the agent chooses the value' : 'Pick a color'}
-            value={hue.picker}
-            oninput={(e) => {
-              hue.picker = e.currentTarget.value;
-              hue.text = hue.picker;
-            }}
-          />
-          <label for="{id}-hue-{i}" class="visually-hidden">Hue {i + 1}: color value or name</label>
-          <input
-            id="{id}-hue-{i}"
-            type="text"
-            autocomplete="off"
-            spellcheck="false"
-            value={hue.text}
-            aria-invalid={errorFor(errors, `hues.${i}`) ? 'true' : undefined}
-            aria-describedby={errorFor(errors, `hues.${i}`) ? `${id}-hue-${i}-error` : undefined}
-            oninput={(e) => {
-              hue.text = e.currentTarget.value;
-              const hex = toPickerHex(hue.text);
-              if (hex) hue.picker = hex;
-            }}
-          />
-          <button type="button" class="secondary icon" onclick={() => removeHue(i)} disabled={form.hues.length === 1} aria-label="Remove hue {i + 1}">✕</button>
-        </div>
-        {#if errorFor(errors, `hues.${i}`)}<p class="field-error" id="{id}-hue-{i}-error">{errorFor(errors, `hues.${i}`)}</p>{/if}
-      {/each}
-      {#if errors.hues}<p class="field-error">{errors.hues}</p>{/if}
-      <button type="button" class="secondary small" onclick={addHue} disabled={form.hues.length >= 8}>Add a hue</button>
-
-      <label for="{id}-mood" class="label">Mood <span class="optional">optional</span></label>
-      <input
-        id="{id}-mood"
-        type="text"
-        placeholder="e.g. calm, trustworthy, a little playful"
-        bind:value={form.mood}
-        aria-invalid={errors.mood ? 'true' : undefined}
-      />
-      {#if errors.mood}<p class="field-error">{errors.mood}</p>{/if}
-    </fieldset>
-
-    <!-- 2. Token format -->
-    <details class="step" bind:open={open.format}>
-      <summary><span class="num">2</span> <span class="title">Token format</span> <span class="summary">{summary.format}</span></summary>
-      <fieldset class="options">
-        <legend class="visually-hidden">Token format</legend>
-        <label><input type="radio" bind:group={form.tokenFormat} value="css" /> CSS custom properties</label>
-        <label><input type="radio" bind:group={form.tokenFormat} value="tailwind" /> Tailwind CSS v4 <code>@theme</code></label>
-        <label><input type="radio" bind:group={form.tokenFormat} value="dtcg" /> Design Tokens JSON</label>
-      </fieldset>
-      {#if form.tokenFormat === 'css'}
-        <label for="{id}-pattern" class="label">Naming pattern</label>
-        <input
-          id="{id}-pattern"
-          type="text"
-          list="{id}-patterns"
-          spellcheck="false"
-          bind:value={form.namingPattern}
-          aria-invalid={errors.namingPattern ? 'true' : undefined}
-          aria-describedby="{id}-pattern-hint"
-        />
-        <datalist id="{id}-patterns">
-          {#each PATTERN_PRESETS as preset}<option value={preset}></option>{/each}
-        </datalist>
-        <p class="hint" id="{id}-pattern-hint">Use <code>[name]</code>, <code>[color]</code>, <code>[mood]</code>, <code>[role]</code>, and <code>[step]</code>.</p>
-        {#if errors.namingPattern}<p class="field-error">{errors.namingPattern}</p>{/if}
-      {:else if form.tokenFormat === 'tailwind'}
-        <p class="hint">Tailwind needs names like <code>--color-[name]-[step]</code>, so colors become utilities such as <code>bg-brand-500</code>.</p>
-      {/if}
-    </details>
-
-    <!-- 3. Scale -->
-    <details class="step" bind:open={open.scale}>
-      <summary><span class="num">3</span> <span class="title">Scale</span> <span class="summary">{summary.scale}</span></summary>
-      <fieldset class="options">
-        <legend class="visually-hidden">Scale</legend>
-        <label><input type="radio" bind:group={form.scaleKind} value="full" /> Full scale, 50–950</label>
-        <label><input type="radio" bind:group={form.scaleKind} value="range" /> A range of steps</label>
-        <label><input type="radio" bind:group={form.scaleKind} value="count" /> A number of steps</label>
-      </fieldset>
-      {#if form.scaleKind === 'range'}
-        <div class="inline">
-          <label for="{id}-from">From</label>
-          <select id="{id}-from" bind:value={form.from}>
-            {#each STEPS as step}<option value={step}>{step}</option>{/each}
-          </select>
-          <label for="{id}-to">to</label>
-          <select id="{id}-to" bind:value={form.to} aria-invalid={errors['scale.to'] ? 'true' : undefined}>
-            {#each STEPS as step}<option value={step}>{step}</option>{/each}
-          </select>
-        </div>
-      {:else if form.scaleKind === 'count'}
-        <div class="inline">
-          <label for="{id}-count">Steps</label>
-          <input id="{id}-count" type="number" min="1" max={STEPS.length} bind:value={form.count} aria-invalid={errorFor(errors, 'scale') ? 'true' : undefined} />
-        </div>
-      {/if}
-      {#if errorFor(errors, 'scale')}<p class="field-error">{errorFor(errors, 'scale')}</p>{/if}
-    </details>
-
-    <!-- 4. Saturation -->
-    <details class="step" bind:open={open.saturation}>
-      <summary><span class="num">4</span> <span class="title">Saturation</span> <span class="summary">{summary.saturation}</span></summary>
-      <label for="{id}-saturation" class="visually-hidden">Saturation</label>
-      <select id="{id}-saturation" bind:value={form.saturation}>
-        {#each SATURATION_OPTIONS as [value, label]}<option {value}>{label}</option>{/each}
-      </select>
-      {#if form.saturation === 'custom'}
-        <label for="{id}-custom-saturation" class="label">Describe it</label>
-        <input
-          id="{id}-custom-saturation"
-          type="text"
-          placeholder="e.g. dusty, like faded fabric"
-          bind:value={form.customSaturation}
-          aria-invalid={errorFor(errors, 'saturation') ? 'true' : undefined}
-        />
-      {/if}
-      {#if errorFor(errors, 'saturation')}<p class="field-error">{errorFor(errors, 'saturation')}</p>{/if}
-    </details>
-
-    <!-- 5. Color system -->
-    <details class="step" bind:open={open.system}>
-      <summary><span class="num">5</span> <span class="title">Color system</span> <span class="summary">{summary.system}</span></summary>
-      <fieldset class="options row">
-        <legend class="visually-hidden">Color system</legend>
-        {#each COLOR_SYSTEMS as system}
-          <label><input type="radio" bind:group={form.colorSystem} value={system} /> {system}</label>
+      <!-- 1. Hues -->
+      <fieldset class="grid gap-3">
+        <legend class="mb-1 flex items-center gap-2 font-semibold">
+          <span class="step-number">1</span> Hues
+        </legend>
+        <p class="text-sm text-on-surface-variant">
+          A color value (hex, rgb, oklch…) or a name like "terracotta". Add more than one if you like.
+        </p>
+        {#each form.hues as hue, i (i)}
+          {@const named = hue.text.trim() !== '' && !toPickerHex(hue.text)}
+          <div class="flex items-center gap-2">
+            <FormField ariaId="{id}-hue-{i}" error={errorFor(errors, `hues.${i}`)} class="flex-1">
+              <Input
+                id="{id}-hue-{i}"
+                value={hue.text}
+                aria-label="Hue {i + 1}: color value or name"
+                autocomplete="off"
+                spellcheck="false"
+                class="w-full"
+                ui={{ leading: 'pointer-events-auto ps-2', base: 'ps-10' }}
+                oninput={(e: Event) => {
+                  hue.text = (e.currentTarget as HTMLInputElement).value;
+                  const hex = toPickerHex(hue.text);
+                  if (hex) hue.picker = hex;
+                }}
+              >
+                {#snippet leadingSlot()}
+                  <input
+                    type="color"
+                    class="hue-picker"
+                    class:named
+                    aria-label="Hue {i + 1} picker"
+                    title={named ? 'A named color: the agent chooses the value' : 'Pick a color'}
+                    bind:value={hue.picker}
+                    oninput={() => (hue.text = hue.picker)}
+                  />
+                {/snippet}
+              </Input>
+            </FormField>
+            <Button
+              icon="lucide:x"
+              variant="ghost"
+              color="surface"
+              aria-label="Remove hue {i + 1}"
+              disabled={form.hues.length === 1}
+              onclick={() => removeHue(i)}
+            />
+          </div>
         {/each}
-      </fieldset>
-      {#if form.colorSystem === 'cmyk'}
-        <p class="hint">Browsers can't use CMYK, so tokens use hex with the CMYK value in a comment.</p>
-      {/if}
-    </details>
-
-    <!-- 6. Roles -->
-    <details class="step" bind:open={open.roles}>
-      <summary><span class="num">6</span> <span class="title">Roles</span> <span class="summary">{summary.roles}</span></summary>
-      <p class="hint">One color per role, each with an optional temperature.</p>
-      {#each form.roles as role, i (i)}
-        <div class="role-row">
-          <label for="{id}-role-{i}" class="visually-hidden">Role {i + 1}</label>
-          <input id="{id}-role-{i}" type="text" placeholder="e.g. primary" bind:value={role.role} aria-invalid={errorFor(errors, `roles.${i}`) ? 'true' : undefined} />
-          <label for="{id}-temp-{i}" class="visually-hidden">Role {i + 1} temperature</label>
-          <select id="{id}-temp-{i}" bind:value={role.temperature}>
-            <option value="">Any temperature</option>
-            <option value="warm">Warm</option>
-            <option value="cool">Cool</option>
-            <option value="neutral">Neutral</option>
-          </select>
-          <button type="button" class="secondary icon" onclick={() => form.roles.splice(i, 1)} aria-label="Remove role {i + 1}">✕</button>
+        {#if errors.hues}<p class="text-sm text-error">{errors.hues}</p>{/if}
+        <div>
+          <Button label="Add a hue" leadingIcon="lucide:plus" variant="outline" color="surface" size="sm" onclick={addHue} disabled={form.hues.length >= 8} />
         </div>
-      {/each}
-      {#if errorFor(errors, 'roles')}<p class="field-error">{errorFor(errors, 'roles')}</p>{/if}
-      <div class="inline">
-        <button type="button" class="secondary small" onclick={() => addRole()} disabled={form.roles.length >= 6}>Add a role</button>
-        {#if form.roles.length === 0}
-          <button type="button" class="secondary small" onclick={useStandardRoles}>Primary, secondary, tertiary</button>
+
+        <FormField label="Mood" hint="Optional" error={errors.mood} ariaId="{id}-mood">
+          <Input bind:value={form.mood} placeholder="e.g. calm, trustworthy, a little playful" class="w-full" />
+        </FormField>
+      </fieldset>
+
+      <!-- 2–7. Optional steps -->
+      <Accordion
+        type="multiple"
+        items={SECTIONS}
+        bind:value={openSections}
+        class="border-t border-outline-variant"
+        ui={{ item: 'border-b border-outline-variant', trigger: 'py-3' }}
+      >
+        {#snippet label({ item })}
+          {@const section = SECTIONS.find((s) => s.value === item.value)!}
+          <span class="flex min-w-0 flex-1 items-center gap-2 text-left">
+            <span class="step-number">{section.number}</span>
+            <span class="shrink-0 font-semibold">{section.label}</span>
+            <span class="truncate text-sm font-normal text-on-surface-variant">{summary[section.value]}</span>
+          </span>
+        {/snippet}
+        {#snippet body({ item })}
+          <div class="grid gap-3 pb-4">
+            {#if item.value === 'format'}
+              <RadioGroup items={FORMAT_ITEMS} bind:value={form.tokenFormat} aria-label="Token format" />
+              {#if form.tokenFormat === 'css'}
+                <FormField
+                  label="Naming pattern"
+                  ariaId="{id}-pattern"
+                  error={errors.namingPattern}
+                  description="Use [name], [color], [mood], [role], and [step]."
+                >
+                  <Input bind:value={form.namingPattern} spellcheck="false" class="w-full font-mono" />
+                </FormField>
+                <div class="flex flex-wrap gap-1.5" role="group" aria-label="Naming pattern presets">
+                  {#each PATTERN_PRESETS as preset}
+                    <Button label={preset} size="xs" variant="soft" color="surface" class="font-mono" onclick={() => (form.namingPattern = preset)} />
+                  {/each}
+                </div>
+              {:else if form.tokenFormat === 'tailwind'}
+                <p class="text-sm text-on-surface-variant">
+                  Tailwind needs names like <code>--color-[name]-[step]</code>, so colors become utilities such as
+                  <code>bg-brand-500</code>.
+                </p>
+              {/if}
+            {:else if item.value === 'scale'}
+              <RadioGroup items={SCALE_ITEMS} bind:value={form.scaleKind} aria-label="Scale" />
+              {#if form.scaleKind === 'range'}
+                <div class="flex flex-wrap items-end gap-2">
+                  <FormField label="From" ariaId="{id}-from">
+                    <Select items={STEP_ITEMS} bind:value={form.from} class="w-28" />
+                  </FormField>
+                  <FormField label="To" ariaId="{id}-to" error={errors['scale.to']}>
+                    <Select items={STEP_ITEMS} bind:value={form.to} class="w-28" />
+                  </FormField>
+                </div>
+              {:else if form.scaleKind === 'count'}
+                <FormField label="Steps" ariaId="{id}-count" error={errorFor(errors, 'scale')}>
+                  <InputNumber bind:value={form.count} min={1} max={STEPS.length} class="w-36" />
+                </FormField>
+              {/if}
+            {:else if item.value === 'saturation'}
+              <FormField label="Saturation" ariaId="{id}-saturation" ui={{ label: 'sr-only' }}>
+                <Select
+                  items={SATURATION_ITEMS}
+                  bind:value={() => form.saturation || 'auto', (v) => (form.saturation = (v === 'auto' ? '' : v) as typeof form.saturation)}
+                  class="w-full"
+                />
+              </FormField>
+              {#if form.saturation === 'custom'}
+                <FormField label="Describe it" ariaId="{id}-custom-saturation" error={errorFor(errors, 'saturation')}>
+                  <Input bind:value={form.customSaturation} placeholder="e.g. dusty, like faded fabric" class="w-full" />
+                </FormField>
+              {/if}
+            {:else if item.value === 'system'}
+              <RadioGroup items={SYSTEM_ITEMS} bind:value={form.colorSystem} orientation="horizontal" aria-label="Color system" />
+              {#if form.colorSystem === 'cmyk'}
+                <p class="text-sm text-on-surface-variant">Browsers can't use CMYK, so tokens use hex with the CMYK value in a comment.</p>
+              {/if}
+            {:else if item.value === 'roles'}
+              <p class="text-sm text-on-surface-variant">One color per role, each with an optional temperature.</p>
+              {#each form.roles as role, i (i)}
+                <div class="flex items-start gap-2">
+                  <FormField ariaId="{id}-role-{i}" error={errorFor(errors, `roles.${i}`)} class="flex-1">
+                    <Input id="{id}-role-{i}" bind:value={role.role} placeholder="e.g. primary" aria-label="Role {i + 1}" class="w-full" />
+                  </FormField>
+                  <Select
+                    items={TEMPERATURE_ITEMS}
+                    bind:value={() => role.temperature || 'any', (v) => (role.temperature = (v === 'any' ? '' : v) as typeof role.temperature)}
+                    aria-label="Role {i + 1} temperature"
+                    class="w-40"
+                  />
+                  <Button icon="lucide:x" variant="ghost" color="surface" aria-label="Remove role {i + 1}" onclick={() => form.roles.splice(i, 1)} />
+                </div>
+              {/each}
+              {#if errorFor(errors, 'roles')}<p class="text-sm text-error">{errorFor(errors, 'roles')}</p>{/if}
+              <div class="flex flex-wrap gap-2">
+                <Button label="Add a role" leadingIcon="lucide:plus" variant="outline" color="surface" size="sm" onclick={() => addRole()} disabled={form.roles.length >= 6} />
+                {#if form.roles.length === 0}
+                  <Button label="Primary, secondary, tertiary" variant="soft" color="surface" size="sm" onclick={useStandardRoles} />
+                {/if}
+              </div>
+            {:else if item.value === 'schemes'}
+              <FormField ariaId="{id}-schemes" error={errors.schemes} description="Each scheme makes its own palette.">
+                <CheckboxGroup
+                  items={SCHEME_ITEMS}
+                  bind:value={() => form.schemes, (v) => (form.schemes = v as Scheme[])}
+                  aria-label="Schemes"
+                  ui={{ fieldset: 'grid grid-cols-1 gap-2 sm:grid-cols-2' }}
+                />
+              </FormField>
+            {/if}
+          </div>
+        {/snippet}
+      </Accordion>
+
+      <!-- 8. Create -->
+      <div class="flex justify-end">
+        {#if running}
+          <Button label="Cancel" variant="outline" color="surface" size="lg" class="min-w-32 justify-center" onclick={cancel} />
+        {:else}
+          <Button
+            type="submit"
+            label="Create"
+            size="lg"
+            class="min-w-32 justify-center"
+            disabled={selectedAgent ? !selectedAgent.available : false}
+          />
         {/if}
       </div>
-    </details>
+    </form>
+  </Card>
 
-    <!-- 7. Schemes -->
-    <details class="step" bind:open={open.schemes}>
-      <summary><span class="num">7</span> <span class="title">Schemes</span> <span class="summary">{summary.schemes}</span></summary>
-      <fieldset class="options grid" aria-invalid={errors.schemes ? 'true' : undefined}>
-        <legend class="visually-hidden">Schemes</legend>
-        {#each SCHEMES as scheme}
-          <label><input type="checkbox" bind:group={form.schemes} value={scheme} aria-invalid={errors.schemes ? 'true' : undefined} /> {SCHEME_LABELS[scheme]}</label>
-        {/each}
-      </fieldset>
-      <p class="hint">Each scheme makes its own palette.</p>
-      {#if errors.schemes}<p class="field-error">{errors.schemes}</p>{/if}
-    </details>
+  <Card class="min-w-0" ui={{ body: 'grid gap-4 p-4 sm:p-6' }}>
+    <section class="grid min-w-0 gap-4" aria-labelledby="{id}-results-heading">
+      <h2 id="{id}-results-heading" class="text-lg font-semibold">Palettes</h2>
 
-    <!-- 8. Create -->
-    <div class="actions">
-      {#if running}
-        <button type="button" class="secondary" onclick={cancel}>Cancel</button>
+      <p class="status flex min-h-6 items-center gap-2 text-on-surface-variant" role="status" aria-live="polite">
+        {#if running}<span class="spinner" aria-hidden="true"></span>{/if}
+        {status}
+      </p>
+
+      {#if failure}
+        <Alert color="error" variant="soft" icon="lucide:circle-alert" title={failure.message} role="alert">
+          {#snippet descriptionSlot()}
+            {#if failure?.detail}
+              <details class="mt-1">
+                <summary class="cursor-pointer">Details</summary>
+                <pre class="mt-2 max-h-64 overflow-auto text-xs whitespace-pre-wrap text-on-surface">{failure.detail}</pre>
+              </details>
+            {/if}
+          {/snippet}
+        </Alert>
+      {/if}
+
+      {#if warnings.length}
+        <Alert color="warning" variant="soft" icon="lucide:triangle-alert">
+          {#snippet descriptionSlot()}
+            <ul class="warnings list-disc pl-4">
+              {#each warnings as warning}<li>{warning}</li>{/each}
+            </ul>
+          {/snippet}
+        </Alert>
+      {/if}
+
+      {#if results.length}
+        <div class="flex flex-wrap items-center gap-2 text-sm" role="group" aria-label="Display options">
+          <span id="{id}-view-format-label">Show tokens as</span>
+          <Select items={VIEW_FORMAT_ITEMS} bind:value={view.format} size="sm" aria-labelledby="{id}-view-format-label" class="w-52" />
+          <span id="{id}-view-system-label">in</span>
+          <Select items={SYSTEM_ITEMS} bind:value={view.system} size="sm" aria-labelledby="{id}-view-system-label" class="w-28" />
+        </div>
+      {/if}
+
+      {#each results as item (item.scheme)}
+        <PaletteResult
+          source={item.source}
+          format={view.format}
+          system={view.system}
+          namingPattern={view.namingPattern}
+          busy={item.busy}
+          status={item.status}
+          error={item.error}
+          onRegenerate={() => refine(item)}
+          onRefine={(note) => refine(item, note)}
+          onCancel={() => item.controller?.abort()}
+        />
       {:else}
-        <button type="submit" disabled={selectedAgent ? !selectedAgent.available : false}>Create</button>
-      {/if}
-    </div>
-  </form>
-
-  <section class="panel results" aria-labelledby="{id}-results-heading">
-    <h2 id="{id}-results-heading">Palettes</h2>
-
-    <p class="status" role="status" aria-live="polite">
-      {#if running}<span class="spinner" aria-hidden="true"></span>{/if}
-      {status}
-    </p>
-
-    {#if failure}
-      <div class="failure" role="alert">
-        <p>{failure.message}</p>
-        {#if failure.detail}
-          <details>
-            <summary>Details</summary>
-            <pre>{failure.detail}</pre>
-          </details>
+        {#if !running && !failure}
+          <p class="empty text-on-surface-variant">Describe a palette and press Create. Only the hue is required.</p>
         {/if}
-      </div>
-    {/if}
-
-    {#if warnings.length}
-      <ul class="warnings">
-        {#each warnings as warning}<li>{warning}</li>{/each}
-      </ul>
-    {/if}
-
-    {#if results.length}
-      <div class="view" role="group" aria-label="Display options">
-        <label for="{id}-view-format">Show tokens as</label>
-        <select id="{id}-view-format" bind:value={view.format}>
-          <option value="css">CSS custom properties</option>
-          <option value="tailwind">Tailwind CSS v4</option>
-          <option value="dtcg">Design Tokens JSON</option>
-        </select>
-        <label for="{id}-view-system">in</label>
-        <select id="{id}-view-system" bind:value={view.system}>
-          {#each COLOR_SYSTEMS as system}<option value={system}>{system}</option>{/each}
-        </select>
-      </div>
-    {/if}
-
-    {#each results as item (item.scheme)}
-      <PaletteResult
-        source={item.source}
-        format={view.format}
-        system={view.system}
-        namingPattern={view.namingPattern}
-        busy={item.busy}
-        status={item.status}
-        error={item.error}
-        onRegenerate={() => refine(item)}
-        onRefine={(note) => refine(item, note)}
-        onCancel={() => item.controller?.abort()}
-      />
-    {:else}
-      {#if !running && !failure}
-        <p class="empty">Describe a palette and press Create. Only the hue is required.</p>
-      {/if}
-    {/each}
-  </section>
+      {/each}
+    </section>
+  </Card>
 </div>
 
 <style>
-  .generator {
-    display: grid;
-    gap: var(--space-6);
-  }
-
-  @media (min-width: 64rem) {
-    .generator {
-      grid-template-columns: minmax(24rem, 2fr) 3fr;
-      align-items: start;
-    }
-
-    form {
-      position: sticky;
-      top: var(--space-4);
-    }
-  }
-
-  .panel {
-    display: grid;
-    gap: var(--space-3);
-    padding: var(--space-6);
-    background: var(--color-surface);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius);
-    min-width: 0;
-  }
-
-  @media (max-width: 40rem) {
-    .panel {
-      padding: var(--space-4);
-    }
-  }
-
-  .panel-heading {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-2) var(--space-4);
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  .agent {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    font-size: 0.8125rem;
-  }
-
-  .agent select {
-    width: auto;
-    min-height: 1.875rem;
-    font-size: 0.8125rem;
-  }
-
-  .agent-status {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-1);
-    color: var(--color-text-muted);
-  }
-
-  .dot {
-    width: 0.5rem;
-    height: 0.5rem;
-    border-radius: 50%;
-    background: var(--color-text-muted);
-  }
-
-  [data-state='ready'] .dot {
-    background: var(--color-success);
-  }
-
-  [data-state='error'] {
-    color: var(--color-danger);
-  }
-
-  [data-state='error'] .dot {
-    background: var(--color-danger);
-  }
-
-  [data-state='checking'] .dot {
-    animation: pulse 1s ease-in-out infinite;
-  }
-
-  .step {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: var(--space-2);
-    padding: var(--space-3) 0 0;
-    border: none;
-    border-top: 1px solid var(--color-border);
-    margin: 0;
-    min-width: 0;
-  }
-
-  fieldset.step {
-    padding-top: var(--space-3);
-  }
-
-  legend,
-  summary {
-    font-weight: 600;
-    display: flex;
-    align-items: baseline;
-    gap: var(--space-2);
-    padding: 0;
-    float: left;
-    width: 100%;
-  }
-
-  legend + * {
-    clear: left;
-  }
-
-  summary {
-    float: none;
-    cursor: pointer;
-    list-style: none;
-  }
-
-  summary::-webkit-details-marker {
-    display: none;
-  }
-
-  summary::after {
-    content: '▸';
-    flex-shrink: 0;
-    color: var(--color-text-muted);
-  }
-
-  details[open] > summary::after {
-    content: '▾';
-  }
-
-  details[open] > summary {
-    margin-bottom: var(--space-2);
-  }
-
-  .num {
+  .step-number {
     display: inline-grid;
     place-items: center;
     width: 1.375rem;
     height: 1.375rem;
-    border-radius: 50%;
-    border: 1px solid var(--color-border);
+    flex-shrink: 0;
+    border-radius: 9999px;
+    border: 1px solid var(--color-outline-variant);
     font-size: 0.75rem;
-    flex-shrink: 0;
-  }
-
-  .title {
-    white-space: nowrap;
-    flex-shrink: 0;
-  }
-
-  .step > button,
-  .step > .inline {
-    justify-self: start;
-  }
-
-  .summary {
-    flex: 1 1 0;
-    font-weight: 400;
-    color: var(--color-text-muted);
-    font-size: 0.875rem;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    min-width: 0;
-  }
-
-  .label {
     font-weight: 500;
-    font-size: 0.875rem;
-    margin-top: var(--space-2);
   }
 
-  .optional {
-    font-weight: 400;
-    color: var(--color-text-muted);
-  }
-
-  input.named {
-    opacity: 0.35;
-  }
-
-  .hue-row,
-  .role-row {
-    display: grid;
-    grid-template-columns: auto 1fr auto;
-    gap: var(--space-2);
-    align-items: center;
-  }
-
-  .role-row {
-    grid-template-columns: 1fr auto auto;
-  }
-
-  .role-row select {
-    width: auto;
-  }
-
-  .options {
-    display: grid;
-    gap: var(--space-2);
-    border: none;
+  .hue-picker {
+    width: 1.5rem;
+    height: 1.5rem;
     padding: 0;
-    margin: 0;
+    border: none;
+    border-radius: var(--radius-sm, 0.25rem);
+    background: transparent;
+    cursor: pointer;
   }
 
-  .options.row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-2) var(--space-4);
+  .hue-picker::-webkit-color-swatch-wrapper {
+    padding: 0;
   }
 
-  .options.grid {
-    grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  .hue-picker::-webkit-color-swatch {
+    border: 1px solid var(--color-outline-variant);
+    border-radius: var(--radius-sm, 0.25rem);
   }
 
-  .options label {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-  }
-
-  .inline {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--space-2);
-  }
-
-  .inline select,
-  .inline input {
-    width: auto;
-  }
-
-  .inline input[type='number'] {
-    width: 5rem;
-  }
-
-  .actions {
-    display: flex;
-    justify-content: flex-end;
-    padding-top: var(--space-3);
-    border-top: 1px solid var(--color-border);
-  }
-
-  .actions button {
-    min-width: 8rem;
-  }
-
-  code {
-    font-size: 0.85em;
-  }
-
-  .results {
-    align-content: start;
-  }
-
-  .status {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    color: var(--color-text-muted);
-    min-height: 1.5rem;
+  .hue-picker.named {
+    opacity: 0.35;
   }
 
   .spinner {
     width: 0.875rem;
     height: 0.875rem;
-    border: 2px solid var(--color-border);
-    border-top-color: var(--color-accent);
+    border: 2px solid var(--color-outline-variant);
+    border-top-color: var(--color-primary);
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
-  }
-
-  .failure {
-    display: grid;
-    gap: var(--space-2);
-    padding: var(--space-3) var(--space-4);
-    border-radius: var(--radius);
-    background: var(--color-danger-bg);
-    color: var(--color-danger);
-  }
-
-  .failure pre {
-    white-space: pre-wrap;
-    font-size: 0.75rem;
-    max-height: 16rem;
-    overflow: auto;
-    color: var(--color-text);
-  }
-
-  .warnings {
-    padding: var(--space-3) var(--space-4) var(--space-3) var(--space-8);
-    border-radius: var(--radius);
-    background: var(--color-warning-bg);
-    color: var(--color-warning);
-    font-size: 0.875rem;
-  }
-
-  .empty {
-    color: var(--color-text-muted);
-  }
-
-  .view {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--space-2);
-    font-size: 0.875rem;
-  }
-
-  .view select {
-    width: auto;
   }
 
   @keyframes spin {
     to {
       transform: rotate(360deg);
-    }
-  }
-
-  @keyframes pulse {
-    50% {
-      opacity: 0.3;
     }
   }
 </style>

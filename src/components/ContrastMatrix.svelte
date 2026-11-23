@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { Select } from 'sv5ui';
   import { contrastLevel, contrastRatio } from '../lib/color/contrast';
   import type { ResolvedPalette } from '../lib/palette/resolve';
 
@@ -16,17 +17,14 @@
   const background = $derived(palette.colors.find((c) => c.name === backgroundName) ?? palette.colors[0]!);
 
   const LEVEL_LABELS = { AAA: 'AAA', AA: 'AA', 'AA-large': 'AA large', fail: 'Fails' } as const;
+  const colorItems = $derived(palette.colors.map((c) => ({ value: c.name, label: c.label })));
 </script>
 
 <div class="controls">
-  <label for="{id}-text">Text</label>
-  <select id="{id}-text" bind:value={textName}>
-    {#each palette.colors as color (color.name)}<option value={color.name}>{color.label}</option>{/each}
-  </select>
-  <label for="{id}-bg">on background</label>
-  <select id="{id}-bg" bind:value={backgroundName}>
-    {#each palette.colors as color (color.name)}<option value={color.name}>{color.label}</option>{/each}
-  </select>
+  <span id="{id}-text-label">Text</span>
+  <Select items={colorItems} bind:value={textName} size="sm" aria-labelledby="{id}-text-label" class="w-36" />
+  <span id="{id}-bg-label">on background</span>
+  <Select items={colorItems} bind:value={backgroundName} size="sm" aria-labelledby="{id}-bg-label" class="w-36" />
 </div>
 
 <div class="scroll">
@@ -67,13 +65,9 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: var(--space-2);
+    gap: 0.5rem;
     font-size: 0.875rem;
-    margin-bottom: var(--space-3);
-  }
-
-  .controls select {
-    width: auto;
+    margin-bottom: 0.75rem;
   }
 
   .scroll {
@@ -87,8 +81,8 @@
 
   th {
     font-weight: 600;
-    color: var(--color-text-muted);
-    padding: var(--space-1);
+    color: var(--color-on-surface-variant);
+    padding: 0.25rem;
     text-align: center;
   }
 
@@ -98,7 +92,7 @@
     padding: 2px;
     text-align: center;
     vertical-align: middle;
-    border: 1px solid var(--color-surface);
+    border: 1px solid var(--color-surface-container-lowest);
   }
 
   td[data-level='fail'] .sample,
@@ -113,12 +107,12 @@
   }
 
   .ratio {
-    font-family: var(--font-mono);
+    font-family: ui-monospace, monospace;
   }
 
   .legend {
-    margin-top: var(--space-2);
+    margin-top: 0.5rem;
     font-size: 0.8125rem;
-    color: var(--color-text-muted);
+    color: var(--color-on-surface-variant);
   }
 </style>

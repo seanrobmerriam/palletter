@@ -222,6 +222,7 @@ If the agent's reply has problems, Palletter asks it to fix them once before rep
 | `bun run test` | Run the unit tests (Vitest) |
 | `bun run test:e2e` | Run the end-to-end tests (Playwright) |
 | `bun run prompt` | Print the prompt for a request, or check a model's reply (see `scripts/prompt.ts`) |
+| `bun run icons` | Rebuild the bundled icon set after adding an icon (see `scripts/icons.ts`) |
 
 The end-to-end tests need a Chromium for Playwright. Run `bunx playwright install chromium` once, or set `PW_CHROMIUM_PATH` to a Chromium that's already installed.
 
@@ -240,6 +241,17 @@ bun run prompt '{"hues":[{"value":"#2563eb"}],"schemes":["analogous"]}' reply.tx
 ```
 
 If the reply is good, this prints the tokens. If not, it lists the problems and prints a repair prompt to send back to the model.
+
+### UI components
+
+The UI uses [SV5UI](https://sv5ui.vercel.app) components with Tailwind CSS 4, inside Astro's Svelte islands. Theme colors come from SV5UI's tokens (`bg-surface`, `text-on-surface`, `border-outline-variant`, `bg-primary`, and so on); see [SV5UI theming](https://sv5ui.vercel.app/docs/theming) to change them in `src/styles/global.css`.
+
+SV5UI is built for SvelteKit, so Palletter adds two small pieces to run it on Astro:
+
+- `src/lib/shims/app-state.ts` stands in for SvelteKit's `$app/state`, which a few SV5UI components read. It's wired up as a Vite alias in `astro.config.mjs`.
+- A script in `src/layouts/Layout.astro` applies the saved light or dark mode before the page paints.
+
+Icons are bundled rather than fetched from the Iconify API, so the app works offline and makes no third-party requests. To use a new [Lucide](https://lucide.dev/icons) icon, add its name to `scripts/icons.ts` and run `bun run icons`. A unit test fails if a `lucide:` icon is used but not bundled.
 
 ### Project structure
 
@@ -261,7 +273,7 @@ If the reply is good, this prints the tokens. If not, it lists the problems and 
 │   ├── pages/
 │   │   ├── api/         Server endpoints
 │   │   └── index.astro  The generator
-│   └── styles/          Layered CSS (reset, base, patterns, components, utilities)
+│   └── styles/          Tailwind CSS 4 and the SV5UI theme
 ├── test/                Shared test fixtures
 └── PLAN.md              Development plan
 ```

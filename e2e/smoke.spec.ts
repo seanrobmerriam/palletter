@@ -12,5 +12,5 @@ test('home page renders the app shell', async ({ page }) => {
 test('the generator island hydrates', async ({ page }) => {
   await page.goto('/');
 
-  await expect(page.locator('.generator')).toHaveAttribute('data-hydrated', 'true');
+  await expect(page.locator('[data-hydrated]')).toHaveAttribute('data-hydrated', 'true');
 });

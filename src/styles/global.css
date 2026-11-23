@@ -1,8 +1,9 @@
-/* Cascade order, lowest priority first */
+/*
+ * Tailwind CSS 4 and the SV5UI theme. SV5UI's color tokens (bg-surface, text-on-surface,
+ * border-outline-variant, bg-primary, …) are available as Tailwind classes.
+ * https://sv5ui.vercel.app/docs/theming
+ */
+@import 'tailwindcss';
+@import 'sv5ui/theme.css';
 
-@layer reset, base, patterns, components, utilities;
-
-@import "./reset.css" layer(reset);
-@import "./base.css" layer(base);
-@import "./patterns.css" layer(patterns);
-@import "./utilities.css" layer(utilities);
+@custom-variant dark (&:where(.dark, .dark *));
