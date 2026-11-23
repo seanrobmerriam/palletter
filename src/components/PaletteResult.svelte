@@ -8,6 +8,7 @@
   import type { ColorSystem, ModelPalette, TokenFormat } from '../lib/prompt/schema';
   import ContrastMatrix from './ContrastMatrix.svelte';
   import PalettePreview from './PalettePreview.svelte';
+  import Swatch from './Swatch.svelte';
 
   type Props = {
     source: ModelPalette;
@@ -85,10 +86,7 @@
     note = '';
   }
 
-  const LEVEL_LABELS = { AAA: 'AAA', AA: 'AA', 'AA-large': 'AA large', fail: 'low' } as const;
 
-  /** "oklch(54.6% 0.215 262.9)" → "54.6% 0.215 262.9", which wraps to fit a narrow swatch. */
-  const compact = (value: string) => value.replace(/^[a-z]+\(|\)$/g, '');
 </script>
 <article class="palette grid min-w-0 gap-4 border-t border-outline-variant pt-4" class:busy aria-labelledby="{id}-title" aria-busy={busy}>
   <header class="grid min-w-0 gap-2">
@@ -153,30 +151,14 @@
       </h4>
       <ul class="swatches">
         {#each color.swatches as swatch (swatch.step)}
-          {@const key = `${color.name}-${swatch.step}`}
-          <li>
-            <button
-              type="button"
-              class="swatch"
-              style:background={swatch.hex}
-              style:color={swatch.text.text === 'white' ? '#fff' : '#000'}
-              onclick={() => copy(swatch.display, key)}
-              aria-label="{color.label} {swatch.step}: {swatch.display}{swatch.gamutMapped ? ', adjusted to fit sRGB' : ''}. {swatch.text.text === 'white' ? 'White' : 'Black'} text {swatch.text.ratio.toFixed(1)} to 1, {LEVEL_LABELS[swatch.text.level]}. Copy value."
-            >
-              <span class="font-semibold">{swatch.step}{#if swatch.gamutMapped}<span aria-hidden="true">*</span>{/if}</span>
-              <span class="value">{copied === key ? 'Copied' : compact(swatch.display)}</span>
-              <span class="badge" data-level={swatch.text.level} aria-hidden="true">
-                {swatch.text.ratio.toFixed(1)} {LEVEL_LABELS[swatch.text.level]}
-              </span>
-            </button>
-          </li>
+          <Swatch {color} {swatch} {system} {format} {namingPattern} />
         {/each}
       </ul>
     </section>
   {/each}
 
   <p class="text-sm text-on-surface-variant">
-    Click a swatch to copy its value. Badges show contrast with the text color on it.
+    Use <span class="sr-only">the details button</span><span aria-hidden="true">ⓘ</span> for a swatch's values and contrast, and the copy button to copy its value.
     {#if adjusted}* Adjusted to fit the sRGB colors most screens can show.{/if}
   </p>
 
@@ -244,52 +226,11 @@
     }
   }
 
-  .swatch {
-    display: grid;
-    align-content: space-between;
-    justify-items: start;
-    gap: 0.5rem;
-    width: 100%;
-    height: 100%;
-    min-height: 5.5rem;
-    padding: 0.5rem;
-    border: none;
-    font-size: 0.75rem;
-    text-align: left;
-    overflow: hidden;
-    cursor: pointer;
-  }
 
-  .swatch:hover {
-    box-shadow: inset 0 0 0 2px currentColor;
-  }
 
-  .swatch:focus-visible {
-    outline: 2px solid var(--color-primary);
-    outline-offset: -4px;
-  }
 
-  .value {
-    font-family: ui-monospace, monospace;
-    font-size: 0.625rem;
-    overflow-wrap: break-word;
-    opacity: 0.85;
-  }
 
-  .badge {
-    font-size: 0.625rem;
-    font-weight: 600;
-    padding: 0 0.3em;
-    border-radius: 3px;
-    border: 1px solid currentColor;
-    white-space: nowrap;
-  }
 
-  .badge[data-level='fail'],
-  .badge[data-level='AA-large'] {
-    border-style: dashed;
-    opacity: 0.8;
-  }
 
   .spinner {
     width: 0.875rem;

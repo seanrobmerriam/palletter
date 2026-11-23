@@ -176,15 +176,43 @@ test.describe('generator form', () => {
     await context.grantPermissions(['clipboard-read', 'clipboard-write']);
     await open(page);
     await create(page).click();
-    await page.getByRole('button', { name: /^color 1 500: oklch\(63% 0\.05 260\)\..*Copy value/ }).click();
+    await page.getByRole('button', { name: 'Copy color 1 500 value' }).click();
     expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('oklch(63% 0.05 260)');
-    await expect(page.locator('.swatch').nth(5)).toContainText('Copied');
+    await expect(page.getByRole('button', { name: 'Copied color 1 500' })).toBeVisible();
   });
 
-  test('shows contrast badges on swatches', async ({ page }) => {
+  test('shows only the step on each swatch, with details in a popover', async ({ page }) => {
     await open(page);
     await create(page).click();
-    await expect(page.locator('.swatch .badge').first()).toHaveText(/\d+\.\d (AAA|AA|AA large|low)/);
+    await expect(page.locator('.swatch').nth(5)).toHaveText('500');
+    await page.getByRole('button', { name: 'Details for color 1 500' }).click();
+    const details = page.getByRole('group', { name: 'color 1 500 details' });
+    await expect(details).toContainText('oklch(63% 0.05 260)');
+    await expect(details).toContainText('--color-color-1-500');
+    await expect(details).toContainText(/White text\s*\d+\.\d\d:1 (AAA|AA|AA large|fails)/);
+    await expect(details).toContainText(/Black text\s*\d+\.\d\d:1 (AAA|AA|AA large|fails)/);
+  });
+
+  test('opens and closes swatch details with the keyboard', async ({ page }) => {
+    await open(page);
+    await create(page).click();
+    const trigger = page.getByRole('button', { name: 'Details for color 1 500' });
+    await trigger.focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('group', { name: 'color 1 500 details' })).toBeVisible();
+    await expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('group', { name: 'color 1 500 details' })).toBeHidden();
+    await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  test('copies a token name from the swatch details', async ({ page, context }) => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    await open(page);
+    await create(page).click();
+    await page.getByRole('button', { name: 'Details for color 1 50' , exact: true }).click();
+    await page.getByRole('button', { name: 'Copy token name' }).click();
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('--color-color-1-50');
   });
 
   test('switches format and color system without asking the agent again', async ({ page }) => {
@@ -199,7 +227,10 @@ test.describe('generator form', () => {
     await choose(page, 'in', 'hex');
     await expect(page.locator('pre code')).toContainText('@theme {');
     await expect(page.locator('pre code')).toContainText(/--color-color-1-500: #[0-9a-f]{6};/);
-    await expect(page.locator('.swatch').nth(5)).toContainText(/#[0-9a-f]{6}/);
+    await page.getByRole('button', { name: 'Details for color 1 500' }).click();
+    const details = page.getByRole('group', { name: 'color 1 500 details' });
+    await expect(details).toContainText(/hex\s*#[0-9a-f]{6}/);
+    await expect(details).toContainText('--color-color-1-500');
     expect(requests).toBe(0);
   });
 
