@@ -459,7 +459,7 @@
           <span class="flex min-w-0 flex-1 items-center gap-2 text-left">
             <span class="step-number">{section.number}</span>
             <span class="shrink-0 font-semibold">{section.label}</span>
-            <span class="truncate text-sm font-normal text-on-surface-variant">{summary[section.value]}</span>
+            <span class="w-0 flex-1 truncate text-sm font-normal text-on-surface-variant">{summary[section.value]}</span>
           </span>
         {/snippet}
         {#snippet body({ item })}
