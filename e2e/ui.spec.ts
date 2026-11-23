@@ -87,6 +87,14 @@ test.describe('generator form', () => {
     expect(hit).toBe('Hue 1 picker');
   });
 
+  test('copies a color chosen with the picker into the text', async ({ page }) => {
+    await open(page);
+    await page.getByLabel('Hue 1 picker').fill('#ff0000');
+    await expect(hue(page)).toHaveValue('#ff0000');
+    await page.getByLabel('Hue 1 picker').fill('#00ff00');
+    await expect(hue(page)).toHaveValue('#00ff00');
+  });
+
   test('keeps the picker in step with the text', async ({ page }) => {
     await open(page);
     await hue(page).fill('rgb(255 0 0)');
@@ -109,6 +117,24 @@ test.describe('generator form', () => {
     await expect(page.getByText('Use a custom property name such as --color-[name]-[step]')).toBeVisible();
     await expect(page.getByLabel('Naming pattern', { exact: true })).toBeFocused();
     await expect(page.getByLabel('Naming pattern', { exact: true })).toHaveAttribute('aria-invalid', 'true');
+  });
+
+  test('marks the schemes invalid and focuses them when none are chosen', async ({ page }) => {
+    await open(page);
+    await section(page, 'Schemes').click();
+    await page.getByLabel('Monochromatic').uncheck();
+    await create(page).click();
+    const first = page.getByRole('checkbox', { name: 'Monochromatic' });
+    await expect(first).toBeFocused();
+    await expect(first).toHaveAttribute('aria-invalid', 'true');
+    const describedBy = (await first.getAttribute('aria-describedby')) ?? '';
+    const ids = describedBy.split(/\s+/).filter(Boolean);
+    const texts = await Promise.all(ids.map((i) => page.locator(`[id="${i}"]`).textContent()));
+    expect(texts.join(' ')).toContain('Choose at least one scheme');
+    // Choosing a scheme clears the error.
+    await page.getByLabel('Triadic').check();
+    await create(page).click();
+    await expect(page.getByRole('checkbox', { name: 'Triadic' })).not.toHaveAttribute('aria-invalid', 'true');
   });
 
   test('can be used with only the keyboard', async ({ page }) => {

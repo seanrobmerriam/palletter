@@ -209,6 +209,26 @@
     return undefined;
   }
 
+  /**
+   * SV5UI's CheckboxGroup doesn't pass FormField's error state to its checkboxes, as Input does.
+   * Mark each scheme checkbox invalid and point it at the error, so the error is announced and the
+   * first checkbox can take focus.
+   */
+  function markSchemes(error: string | undefined) {
+    const errorId = `${id}-schemes-error`;
+    for (const box of document.querySelectorAll<HTMLElement>(`#${CSS.escape(id)}-schemes-group [role="checkbox"]`)) {
+      const describedBy = (box.getAttribute('aria-describedby') ?? '').split(/\s+/).filter((t) => t && t !== errorId);
+      if (error) {
+        box.setAttribute('aria-invalid', 'true');
+        describedBy.push(errorId);
+      } else {
+        box.removeAttribute('aria-invalid');
+      }
+      if (describedBy.length) box.setAttribute('aria-describedby', describedBy.join(' '));
+      else box.removeAttribute('aria-describedby');
+    }
+  }
+
   async function submit(event: SubmitEvent) {
     event.preventDefault();
     if (running) return;
@@ -222,10 +242,12 @@
       await tick();
       // Sections animate open; wait a frame so their controls can take focus.
       await new Promise((resolve) => requestAnimationFrame(resolve));
+      markSchemes(errors.schemes);
       document.querySelector<HTMLElement>(`#${CSS.escape(id)}-form [aria-invalid="true"]`)?.focus();
       return;
     }
     errors = {};
+    markSchemes(undefined);
     await generate({ ...result.input, ...(agentId ? { agent: agentId } : {}) });
   }
 
@@ -401,7 +423,11 @@
                     aria-label="Hue {i + 1} picker"
                     title={named ? 'A named color: the agent chooses the value' : 'Pick a color'}
                     bind:value={hue.picker}
-                    oninput={() => (hue.text = hue.picker)}
+                    oninput={(e) => {
+                      // Read the event, not the binding, so this doesn't depend on handler order.
+                      hue.picker = e.currentTarget.value;
+                      hue.text = e.currentTarget.value;
+                    }}
                   />
                 {/snippet}
               </Input>
@@ -526,6 +552,7 @@
             {:else if item.value === 'schemes'}
               <FormField ariaId="{id}-schemes" error={errors.schemes} description="Each scheme makes its own palette.">
                 <CheckboxGroup
+                  id="{id}-schemes-group"
                   items={SCHEME_ITEMS}
                   bind:value={() => form.schemes, (v) => (form.schemes = v as Scheme[])}
                   aria-label="Schemes"
