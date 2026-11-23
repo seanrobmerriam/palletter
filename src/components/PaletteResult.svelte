@@ -162,6 +162,7 @@
             <button
               type="button"
               class="swatch"
+              class:copied={copied === key}
               style:background={swatch.hex}
               style:color={swatch.text.text === 'white' ? '#fff' : '#000'}
               onclick={() => copy(swatch.display, key)}
@@ -180,7 +181,7 @@
   {/each}
 
   <p class="text-sm text-on-surface-variant">
-    Click a swatch to copy its value. Badges show contrast with the text color on it.
+    Hover a swatch to see its value and the contrast of its text, and click to copy the value.
     {#if adjusted}* Adjusted to fit the sRGB colors most screens can show.{/if}
   </p>
 
@@ -268,6 +269,14 @@
     text-align: left;
     overflow: hidden;
     cursor: pointer;
+  }
+
+  /* Show only the step until a swatch is hovered, focused or just copied.
+     Touch screens can't hover, so they keep every detail visible. */
+  @media (hover: hover) {
+    .swatch:not(:hover, :focus-visible, .copied) :is(.value, .badge) {
+      opacity: 0;
+    }
   }
 
   .swatch:hover {
