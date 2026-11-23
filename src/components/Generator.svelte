@@ -432,14 +432,14 @@
         items={SECTIONS}
         bind:value={openSections}
         class="border-t border-outline-variant"
-        ui={{ item: 'border-b border-outline-variant', trigger: 'py-3' }}
+        ui={{ item: 'border-b border-outline-variant', trigger: 'py-3', label: 'min-w-0 flex-1' }}
       >
         {#snippet label({ item })}
           {@const section = SECTIONS.find((s) => s.value === item.value)!}
           <span class="flex min-w-0 flex-1 items-center gap-2 text-left">
             <span class="step-number">{section.number}</span>
             <span class="shrink-0 font-semibold">{section.label}</span>
-            <span class="truncate text-sm font-normal text-on-surface-variant">{summary[section.value]}</span>
+            <span class="w-0 flex-1 truncate text-sm font-normal text-on-surface-variant">{summary[section.value]}</span>
           </span>
         {/snippet}
         {#snippet body({ item })}
