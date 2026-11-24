@@ -38,12 +38,9 @@ If the dark steps keep full chroma, they look neon. If they lose too much, they 
 
 ## Hue drift
 
-A small, steady hue shift along the scale makes it look more natural. Keep the total drift within about 10°.
+Palletter adds a small hue drift along every scale itself, the way real pigments shift: dark steps move toward blue-violet (yellows and ambers move toward orange and brown instead), and light steps move a little the other way. The drift is up to about 7° at the dark end and 5° at the light end, measured from the most colorful step.
 
-- Yellows and oranges: shift the dark steps toward red (lower hue), so dark yellows become warm browns instead of olive.
-- Blues: shift the dark steps slightly toward indigo (higher hue).
-- Greens: shift the dark steps slightly toward teal (higher hue).
-- Light steps can drift a little the other way.
+So keep each color's hue the same at every step. Don't add drift of your own, or it will be doubled.
 
 ## Gamut
 

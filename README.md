@@ -11,9 +11,10 @@ Palletter turns your input into a prompt and sends it over the [Agent Client Pro
 Palletter doesn't take the model's output on faith. Before you see a palette, Palletter:
 
 1. **Validates** the response against a strict schema. If the response is malformed, it asks the model to fix it.
-2. **Converts** each color into the color system you picked, so the values are exact and consistent instead of approximated by the model.
-3. **Checks** contrast between the colors in the palette and flags pairs that won't meet WCAG AA for text.
-4. **Formats** the tokens in your chosen format, ready to paste.
+2. **Balances** the palette (see [Balance](#balance)), so one color leads and each scale shifts hue naturally from light to dark.
+3. **Converts** each color into the color system you picked, so the values are exact and consistent instead of approximated by the model.
+4. **Checks** contrast between the colors in the palette and flags pairs that won't meet WCAG AA for text.
+5. **Formats** the tokens in your chosen format, ready to paste.
 
 ```
 ┌──────────┐  palette request  ┌──────────────────┐   prompt + skills   ┌──────────────┐
@@ -68,6 +69,15 @@ A palette type (or scheme) describes how the hues in the palette relate to each 
 | **Tetradic** | 4 hues in two complementary pairs (rectangle or square) | Rich palettes with many options. Hardest to balance. |
 
 The angles are a starting point. The Palletter skills tell the model to adjust hues, lightness, and chroma so the result looks good, rather than placing colors on exact angles.
+
+## Balance
+
+A palette where every color is equally saturated looks harsh, whatever the scheme. Real designs give each color a job, so Palletter has the model give every color a role, and then balances the palette itself:
+
+- **Chroma hierarchy.** The primary color leads at full chroma. Supporting colors (secondary, tertiary, and other roles) peak at no more than 70% of the primary's chroma. Accents stay bright, because they're used in small doses, and neutrals stay quiet.
+- **Hue drift.** Each scale shifts hue slightly from light to dark, as real pigments do. Dark steps move toward blue-violet (yellows and ambers move toward orange and brown instead), and light steps move a little the other way, up to about 7° and 5°.
+
+Your exact colors are never changed, and a color that contains one isn't capped. With **Pure** saturation, supporting colors aren't capped either. Colors that fit in sRGB still fit after balancing.
 
 ## Saturation
 

@@ -2,7 +2,7 @@
 
 ## Saturation
 
-The request may name a saturation. Values are chroma at the peak step of the scale (usually 500 or 600). Scale the other steps along the chroma curve in [scales.md](scales.md).
+The request may name a saturation. Values are chroma at the peak step of the primary color's scale (usually 500 or 600). Supporting colors peak lower, as [color-theory.md](color-theory.md) (Balance) describes, except with `pure`. Scale the other steps along the chroma curve in [scales.md](scales.md).
 
 | Saturation | Peak chroma | Notes |
 | ---------- | ----------- | ----- |

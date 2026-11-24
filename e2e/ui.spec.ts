@@ -28,7 +28,7 @@ test.describe('generator form', () => {
     await expect(page.getByRole('status').filter({ hasText: 'Created 1 palette.' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Monochromatic', exact: true })).toBeVisible();
     await expect(page.locator('.swatch')).toHaveCount(11);
-    await expect(page.locator('pre code')).toContainText('--color-color-1-50: oklch(97% 0.012 260);');
+    await expect(page.locator('pre code')).toContainText('--color-color-1-50: oklch(97% 0.012 255);');
   });
 
   test('sends every choice the form offers', async ({ page }) => {
