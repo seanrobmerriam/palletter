@@ -15,6 +15,7 @@ import {
   darkDirection,
   DARK_DRIFT,
   harmonizePalette,
+  harmonizeWithNotes,
   mostColorful,
   hueDrift,
   LIGHT_DRIFT,
@@ -284,5 +285,34 @@ describe('semantic colors', () => {
     expect(hueAt(ok!, '500')).toBeCloseTo(150, 0);
     expect(hueAt(stop!, '500')).toBeCloseTo(25, 0);
     expect(hueAt(stop!, '900')).not.toBeCloseTo(25, 0);
+  });
+});
+
+describe('notes', () => {
+  it('says what balancing changed, naming the colors', () => {
+    const { notes } = harmonizeWithNotes(
+      palette(scale('brand', 255, 0.17, 'primary'), scale('leaf', 135, 0.17, 'secondary'), scale('rose', 15, 0.17, 'tertiary')),
+      request(),
+    );
+    expect(notes).toEqual([
+      'Softened leaf and rose so brand leads.',
+      "Pulled leaf and rose toward brand's hue so the colors look related.",
+      "Shifted each scale's hue slightly from light to dark, as real pigments do.",
+    ]);
+  });
+
+  it('mentions lightness only when it moved', () => {
+    const leaf = scale('leaf', 145, 0.1, 'secondary');
+    for (const step of ['300', '500', '700'] as const) {
+      const c = parseOklch(leaf.steps[step]!)!;
+      leaf.steps[step] = formatOklch({ ...c, l: c.l + 0.1 });
+    }
+    const { notes } = harmonizeWithNotes(palette(scale('brand', 255, 0.15, 'primary'), leaf), request(), { hueDrift: false, commonCast: false });
+    expect(notes).toEqual(['Evened out the lightness of leaf to match brand.']);
+  });
+
+  it('is empty when nothing changed', () => {
+    const grey = scale('grey', 0, 0, 'neutral');
+    expect(harmonizeWithNotes(palette(grey), request()).notes).toEqual([]);
   });
 });

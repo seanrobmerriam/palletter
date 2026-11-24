@@ -147,6 +147,8 @@ export const PaletteRequestSchema = z.object({
   scale: ScaleSchema.default({ kind: 'full' }),
   saturation: SaturationSchema.optional(),
   colorSystem: ColorSystemSchema.default('oklch'),
+  /** Let Palletter balance the model's palette (see `palette/harmonize.ts`). */
+  balance: z.boolean().default(true),
   roles: z.array(RoleSchema).max(6, 'Use at most 6 roles').optional(),
   schemes: z
     .array(SchemeSchema)

@@ -234,9 +234,10 @@ Palettes built only from color-wheel angles, with every color at the same chroma
 
 **Step 4: control and transparency**
 
-- [ ] A **Balance** option in the form (on by default), sent as `balance` in the request, so users can see the model's palette untouched.
-- [ ] Show what balancing changed on each palette card (e.g. "Softened leaf and rose so brand leads"), and a before/after toggle.
-- [ ] Manual review: run the fixed set of prompt-quality requests with a real agent before and after each step, and compare by eye.
+- [x] A **Balance the palette** switch under Saturation (on by default), sent as `balance: false` when off. The section summary says "not balanced".
+- [x] `harmonizeWithNotes` describes what balancing changed in plain sentences (e.g. "Softened leaf and rose so brand leads."). Palette events carry `notes`, and `original` (the agent's palette) when balancing changed it.
+- [x] Each palette card shows the notes and a **Show the agent's original** / **Show balanced** toggle (`aria-pressed`) that switches the swatches, tokens, preview, and contrast together. It resets when the palette is refined or regenerated.
+- [ ] Manual review: run the fixed set of prompt-quality requests with a real agent, with balancing on and off, and compare by eye. Needs a signed-in agent, so it has to run on a local machine.
 
 **Done when:** a triadic or tetradic palette from a real agent looks usable in a product UI without hand-editing, and the new schemes are available in the form.
 

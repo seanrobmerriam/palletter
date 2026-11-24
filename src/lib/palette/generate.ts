@@ -10,7 +10,7 @@ import { parseModelResponse } from '../prompt/parse';
 import { buildRefinePrompt } from '../prompt/refine';
 import { buildRepairPrompt } from '../prompt/repair';
 import type { ModelPalette, PaletteRequest, Scheme } from '../prompt/schema';
-import { harmonizePalette } from './harmonize';
+import { harmonizeWithNotes } from './harmonize';
 import { resolvePalette, type ResolvedPalette } from './resolve';
 
 export type GenerateStage = 'starting' | 'thinking' | 'writing' | 'checking' | 'repairing';
@@ -20,9 +20,17 @@ export type GenerateEvent =
   | { type: 'warning'; message: string }
   /**
    * One palette. `source` is the model's palette (oklch) after Palletter has balanced it, so
-   * clients can convert and format it again without asking the model.
+   * clients can convert and format it again without asking the model. When balancing changed
+   * anything, `original` is the palette exactly as the model gave it, and `notes` say what changed.
    */
-  | { type: 'palette'; palette: ResolvedPalette; tokens: string; source: ModelPalette }
+  | {
+      type: 'palette';
+      palette: ResolvedPalette;
+      tokens: string;
+      source: ModelPalette;
+      original?: ModelPalette;
+      notes: string[];
+    }
   /** The agent session is kept open for refinements, under this id. */
   | { type: 'session'; id: string }
   | { type: 'done' }
@@ -99,10 +107,12 @@ async function runTurn(
   for (const warning of result.warnings) emit({ type: 'warning', message: warning });
 
   for (const reply of result.response.palettes) {
-    const source = harmonizePalette(reply, request);
+    const balanced = request.balance ? harmonizeWithNotes(reply, request) : { palette: reply, notes: [] };
+    const source = balanced.palette;
     const palette = resolvePalette(source, request.colorSystem);
     const tokens = formatPalette(palette, { format: request.tokenFormat, namingPattern: request.namingPattern });
-    emit({ type: 'palette', palette, tokens, source });
+    const changed = JSON.stringify(source) !== JSON.stringify(reply);
+    emit({ type: 'palette', palette, tokens, source, ...(changed ? { original: reply } : {}), notes: balanced.notes });
   }
 }
 
