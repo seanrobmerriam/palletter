@@ -39,7 +39,7 @@ oklch hue is perceptual, but some hues still look better when nudged. Move a hue
 - Greens around 145° can look artificial. Nudge toward 155–165° for a fresher green, or toward 130° for olive.
 - Reds read as more confident around 25–30° than at exactly 20°.
 
-Palletter warns the user when a palette strays more than 35° from the scheme, so stay within that.
+Stay within 35° of the reference angles. Palletter then pulls supporting and accent hues up to 12° toward the primary's hue (a common cast), and warns the user only when a palette strays further than both allow.
 
 ## Balance
 
@@ -53,6 +53,7 @@ Palettes look harsh when every color is equally loud. Real designs give each col
 | Neutral | 0.005–0.02 | Backgrounds, surfaces, borders, body text. Most of the screen. |
 
 - Exactly one color leads. If the request lists roles, the first role leads unless another role is clearly the primary or brand.
+- Palletter moves the middle steps (300–700) of supporting and accent colors toward the primary's lightness, so give them about the same lightness as the primary at each step, except yellows, ambers, and limes, which sit lighter (see [scales.md](scales.md)).
 - Palletter caps supporting colors at 70% of the primary's peak chroma, unless the saturation is `pure` or the color holds the user's exact value. Choose supporting colors that look right at that level instead of relying on the cap.
 - In complementary, triadic, and tetradic schemes, soften the colors opposite the primary. A muted complement looks designed; two full-chroma opposites look like a sports kit.
 - Make neutrals a grey with a little chroma in the primary's hue. This makes them feel part of the palette. A neutral doesn't count toward the scheme's hues.

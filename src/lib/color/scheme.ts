@@ -61,8 +61,17 @@ export function schemeDeviation(hues: number[], scheme: Scheme): number {
   return Math.min(...candidates.map(worstFor));
 }
 
-/** Deviation above which Palletter warns that a palette doesn't look like the requested scheme. */
-export const SCHEME_WARNING_DEGREES = 35;
+/** How far the model may nudge a hue from its reference angle (`color-theory.md`). */
+export const MODEL_HUE_LEEWAY = 35;
+
+/** The most the common cast pulls a hue toward the lead's (`palette/harmonize.ts`). */
+export const CAST_MAX = 12;
+
+/**
+ * Deviation above which Palletter warns that a palette doesn't look like the requested scheme:
+ * the model's leeway plus Palletter's own pull, so balancing never sets off the warning.
+ */
+export const SCHEME_WARNING_DEGREES = MODEL_HUE_LEEWAY + CAST_MAX;
 
 export type SchemeCheck = { deviation: number; matches: boolean };
 

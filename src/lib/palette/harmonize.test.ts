@@ -1,10 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import { formatOklch, parseOklch } from '../color/convert';
+import { bestTextColor } from '../color/contrast';
 import { isInSrgb } from '../color/gamut';
 import { hueDistance } from '../color/scheme';
 import { PaletteRequestSchema, type ModelColor, type ModelPalette, type PaletteRequestInput } from '../prompt/schema';
+import { CAST_MAX } from '../color/scheme';
 import {
+  bandShift,
+  castShift,
   classifyColors,
+  expectedLightnessOffset,
+  LIGHTNESS_BAND,
+  MAX_LIGHTNESS_SHIFT,
   darkDirection,
   DARK_DRIFT,
   harmonizePalette,
@@ -106,7 +113,8 @@ describe('harmonizePalette', () => {
   });
 
   it('does not cap with pure saturation', () => {
-    const result = harmonizePalette(loud, request({ saturation: 'pure' }));
+    // Without the cast, so the hue (and its sRGB limit) stays where it was.
+    const result = harmonizePalette(loud, request({ saturation: 'pure' }), { commonCast: false });
     expect(peak(result.colors[1]!)).toBeCloseTo(0.17, 3);
   });
 
@@ -154,5 +162,102 @@ describe('harmonizePalette', () => {
   it('keeps greys grey', () => {
     const grey = scale('grey', 0, 0, 'neutral');
     expect(harmonizePalette(palette(scale('brand', 250, 0.15, 'primary'), grey), request()).colors[1]).toEqual(grey);
+  });
+});
+
+describe('common cast', () => {
+  it('pulls a hue a tenth of the way toward the lead, the short way round', () => {
+    expect(castShift(280, 250)).toBeCloseTo(-3);
+    expect(castShift(10, 350)).toBeCloseTo(-2);
+    expect(castShift(350, 10)).toBeCloseTo(2);
+  });
+
+  it('pulls at most CAST_MAX degrees', () => {
+    expect(castShift(135, 255)).toBeCloseTo(CAST_MAX);
+    expect(Math.abs(castShift(75, 255))).toBeCloseTo(CAST_MAX);
+  });
+
+  it('pulls supporting and accent hues toward the lead, but not neutrals or exact colors', () => {
+    const exact = 'oklch(63% 0.1 15)';
+    const rose = scale('rose', 15, 0.1, 'tertiary');
+    rose.steps['500'] = exact;
+    const result = harmonizePalette(
+      palette(
+        scale('brand', 255, 0.17, 'primary'),
+        scale('leaf', 135, 0.17, 'secondary'),
+        scale('pop', 75, 0.17, 'accent'),
+        scale('stone', 135, 0.015, 'neutral'),
+        rose,
+      ),
+      request({ hues: [{ name: 'blue' }, { value: exact }] }),
+    );
+    const [, leaf, pop, stone, outRose] = result.colors;
+    expect(hueAt(leaf!, '500')).toBeCloseTo(135 + CAST_MAX, 0);
+    expect(hueDistance(hueAt(pop!, '500'), 75)).toBeCloseTo(CAST_MAX, 0);
+    expect(hueAt(stone!, '500')).toBeCloseTo(135, 0);
+    expect(outRose!.steps['500']).toBe(exact);
+  });
+
+  it('can be turned off', () => {
+    const result = harmonizePalette(
+      palette(scale('brand', 255, 0.17, 'primary'), scale('leaf', 135, 0.17, 'secondary')),
+      request(),
+      { commonCast: false },
+    );
+    expect(hueAt(result.colors[1]!, '500')).toBeCloseTo(135, 0);
+  });
+});
+
+describe('lightness band', () => {
+  it('expects yellows to sit lighter than other hues', () => {
+    expect(expectedLightnessOffset(95)).toBeGreaterThan(0);
+    expect(expectedLightnessOffset(250)).toBe(0);
+  });
+
+  it('leaves colors inside the band alone', () => {
+    expect(bandShift({ l: 0.66, h: 145 }, { l: 0.63, h: 250 })).toBe(0);
+    expect(bandShift({ l: 0.72, h: 95 }, { l: 0.63, h: 250 })).toBe(0);
+  });
+
+  it('moves colors back to the edge of the band, up to the maximum', () => {
+    expect(bandShift({ l: 0.7, h: 145 }, { l: 0.63, h: 250 })).toBeCloseTo(-(0.07 - LIGHTNESS_BAND));
+    expect(bandShift({ l: 0.5, h: 145 }, { l: 0.63, h: 250 })).toBeCloseTo(MAX_LIGHTNESS_SHIFT);
+  });
+
+  /** A scale whose middle steps sit `offset` lighter than usual. */
+  function shifted(name: string, hue: number, peak: number, role: string, offset: number): ModelColor {
+    const color = scale(name, hue, peak, role);
+    for (const step of ['300', '500', '700'] as const) {
+      const c = parseOklch(color.steps[step]!)!;
+      color.steps[step] = formatOklch({ ...c, l: c.l + offset });
+    }
+    return color;
+  }
+
+  it('moves the middle steps of a supporting color toward the lead, tapering off', () => {
+    const result = harmonizePalette(
+      palette(scale('brand', 255, 0.15, 'primary'), shifted('leaf', 145, 0.1, 'secondary', 0.1)),
+      request(),
+    );
+    const leaf = result.colors[1]!;
+    const l = (step: keyof typeof LIGHTNESS) => parseOklch(leaf.steps[step]!)!.l;
+    expect(l('500')).toBeCloseTo(0.73 - MAX_LIGHTNESS_SHIFT, 2);
+    expect(l('300')).toBeCloseTo(0.91 - MAX_LIGHTNESS_SHIFT / 2, 2);
+    expect(l('100')).toBeCloseTo(0.94, 2);
+    expect(l('900')).toBeCloseTo(0.37, 2);
+  });
+
+  it('never makes a step’s text contrast worse', () => {
+    // Darkening a 500 that already reads well with black text would only make it worse.
+    const result = harmonizePalette(
+      palette(scale('brand', 255, 0.15, 'primary'), shifted('leaf', 145, 0.1, 'secondary', 0.1)),
+      request(),
+    );
+    const before = shifted('leaf', 145, 0.1, 'secondary', 0.1);
+    for (const step of Object.keys(LIGHTNESS) as (keyof typeof LIGHTNESS)[]) {
+      const rank = { fail: 0, 'AA-large': 1, AA: 2, AAA: 3 } as const;
+      const level = (v: string) => rank[bestTextColor(parseOklch(v)!).level];
+      expect(level(result.colors[1]!.steps[step]!)).toBeGreaterThanOrEqual(level(before.steps[step]!));
+    }
   });
 });

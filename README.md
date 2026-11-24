@@ -68,7 +68,7 @@ A palette type (or scheme) describes how the hues in the palette relate to each 
 | **Triadic** | 3 evenly spaced hues (120°) | Vibrant, balanced palettes. Usually one hue dominates. |
 | **Tetradic** | 4 hues in two complementary pairs (rectangle or square) | Rich palettes with many options. Hardest to balance. |
 
-The angles are a starting point. The Palletter skills tell the model to adjust hues, lightness, and chroma so the result looks good, rather than placing colors on exact angles.
+The angles are a starting point. The Palletter skills tell the model to adjust hues, lightness, and chroma so the result looks good, rather than placing colors on exact angles. Palletter warns when a palette's hues stray more than 47° from the scheme: 35° of leeway for the model, plus up to 12° from Palletter's own common cast.
 
 ## Balance
 
@@ -76,8 +76,10 @@ A palette where every color is equally saturated looks harsh, whatever the schem
 
 - **Chroma hierarchy.** The primary color leads at full chroma. Supporting colors (secondary, tertiary, and other roles) peak at no more than 70% of the primary's chroma. Accents stay bright, because they're used in small doses, and neutrals stay quiet.
 - **Hue drift.** Each scale shifts hue slightly from light to dark, as real pigments do. Dark steps move toward blue-violet (yellows and ambers move toward orange and brown instead), and light steps move a little the other way, up to about 7° and 5°.
+- **Common cast.** Supporting and accent hues are pulled a tenth of the way toward the primary's hue, up to 12°, like one light falling on a whole scene. Even triadic and tetradic palettes look related.
+- **Lightness band.** The middle steps (300–700) of supporting and accent colors move toward the primary's lightness, so no color looks heavier than the others. Yellows, ambers, and limes are allowed to sit lighter, and a step never moves if that would make its text contrast worse.
 
-Your exact colors are never changed, and a color that contains one isn't capped. With **Pure** saturation, supporting colors aren't capped either. Colors that fit in sRGB still fit after balancing.
+Your exact colors are never changed, and a color that contains one isn't capped, pulled, or moved. With **Pure** saturation, supporting colors aren't capped either. Colors that fit in sRGB still fit after balancing.
 
 ## Saturation
 

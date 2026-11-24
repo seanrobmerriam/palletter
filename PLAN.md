@@ -216,11 +216,12 @@ Palettes built only from color-wheel angles, with every color at the same chroma
 - [x] `src/lib/palette/harmonize.ts`: Palletter balances each palette before resolving it. Supporting colors are capped at 70% of the lead's peak chroma (not with `pure` saturation, and never a color holding the user's exact value). Each scale gets a deterministic hue drift: dark steps toward blue-violet (yellows and ambers toward brown), light steps the other way, up to 7° and 5°. The model keeps hues steady (`scales.md`) so the drift isn't doubled. Exact user colors are never changed, and steps that fit in sRGB still fit.
 - [x] `source` in palette events is the balanced palette, so the browser re-resolves the same colors.
 
-**Step 2: tie the colors together**
+**Step 2: tie the colors together ✅**
 
-- [ ] Common cast: pull each non-primary hue 5–15° toward the primary's hue, like one light falling on a scene, so even triadic and tetradic palettes look related. Add it to `harmonize.ts`, skipping exact user colors.
-- [ ] Shared lightness band: keep the 500 steps of the primary and supporting colors within a few percent of the same lightness (after the hue adjustments in `scales.md`), so no color looks heavier than the others.
-- [ ] Loosen the scheme check: count the deliberate pull and nudges as part of the scheme, or measure deviation only on the primary and supporting colors, so the 35° warning doesn't fire on balanced palettes.
+- [x] Common cast in `harmonize.ts`: supporting and accent hues are rotated a tenth of the way toward the lead's hue, up to `CAST_MAX` (12°), before hue drift is applied. Neutrals and colors holding an exact user color are left alone.
+- [x] Lightness band in `harmonize.ts`: supporting and accent colors are compared with the lead at the first shared middle step (500, then 600, 400, 700, 300). If they're more than 4% off, allowing +7% for yellows, ambers, and limes, their 400–600 steps move back toward the band, by at most 6%, and 300 and 700 move half as far. A step keeps its lightness if moving it would lower its WCAG text-contrast level.
+- [x] Looser scheme check: the warning threshold is the model's 35° leeway plus `CAST_MAX`, so balancing never sets it off (`scheme.ts`). `color-theory.md` still asks the model to stay within 35°.
+- [x] Each step can be turned off through `HarmonizeOptions`, ready for the Balance option in step 4.
 
 **Step 3: schemes defined by character, not angles**
 
