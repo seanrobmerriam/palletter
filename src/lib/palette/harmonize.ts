@@ -8,14 +8,20 @@
  * 2. **Hue drift.** Each scale shifts hue a little with lightness: dark steps toward blue-violet
  *    (or toward brown, for yellows and ambers) and light steps the other way, as real pigments
  *    do. The model keeps each scale's hue steady, and Palletter adds the drift.
+ * 3. **Common cast.** Supporting and accent hues are pulled a little toward the lead's hue, like
+ *    one light falling on a scene, so even triadic and tetradic palettes look related.
+ * 4. **Lightness band.** The middle steps of supporting and accent colors are moved toward the
+ *    lead's lightness (allowing for yellows, which need to be lighter), so no color looks
+ *    heavier than the others. A step never moves if that would make its text contrast worse.
  *
- * Exact colors the user gave are never changed, and a color that holds one isn't capped.
- * Steps that were in sRGB stay in sRGB.
+ * Exact colors the user gave are never changed, and a color that holds one isn't capped, cast,
+ * or moved. Steps that were in sRGB stay in sRGB.
  */
 import type { Oklch } from 'culori';
 import { anyToOklch, formatOklch, parseOklch } from '../color/convert';
+import { bestTextColor, type ContrastLevel } from '../color/contrast';
 import { isInSrgb } from '../color/gamut';
-import { hueDistance, normalizeHue } from '../color/scheme';
+import { CAST_MAX, hueDistance, normalizeHue } from '../color/scheme';
 import type { ModelColor, ModelPalette, PaletteRequest, Step } from '../prompt/schema';
 
 /** Supporting colors peak at no more than this share of the lead color's peak chroma. */
@@ -31,6 +37,18 @@ export const LIGHT_DRIFT = 5;
 /** The lightness the drift reaches its full amount at, at each end. */
 const DARKEST = 0.25;
 const LIGHTEST = 0.97;
+
+/** Share of the hue distance to the lead that the common cast closes, up to `CAST_MAX` degrees. */
+export const CAST_RATIO = 0.1;
+
+/** How far, in lightness, a color's middle steps may sit from the lead's before they're moved. */
+export const LIGHTNESS_BAND = 0.04;
+/** The most a step's lightness is moved to bring it into the band. */
+export const MAX_LIGHTNESS_SHIFT = 0.06;
+/** How much of the lightness shift each step takes. Light and dark ends keep their lightness. */
+const BAND_TAPER: Partial<Record<Step, number>> = { '300': 0.5, '400': 1, '500': 1, '600': 1, '700': 0.5 };
+/** Steps to compare lightness at, best first. */
+const BAND_STEPS: Step[] = ['500', '600', '400', '700', '300'];
 
 const LEAD_ROLE = /\b(primary|brand|main|lead)\b/i;
 const ACCENT_ROLE = /\b(accent|highlight|pop|cta)\b/i;
@@ -97,6 +115,40 @@ export function hueDrift(hue: number, l: number, anchor: number): number {
   return -direction * LIGHT_DRIFT * t;
 }
 
+/** Signed rotation, in degrees, that pulls `hue` toward `lead` for the common cast. */
+export function castShift(hue: number, lead: number): number {
+  let delta = normalizeHue(lead - hue);
+  if (delta > 180) delta -= 360;
+  return Math.sign(delta) * Math.min(Math.abs(delta) * CAST_RATIO, CAST_MAX);
+}
+
+/**
+ * How much lighter than other hues a hue sits at the same step. Yellows, ambers, and limes need
+ * more lightness to stay recognisable (see `scales.md`).
+ */
+export function expectedLightnessOffset(hue: number): number {
+  const h = normalizeHue(hue);
+  return h >= 60 && h < 135 ? 0.07 : 0;
+}
+
+/**
+ * The lightness shift that brings a color's middle steps into the band around the lead's, or 0.
+ * `color` and `lead` are lightness and hue at the same step.
+ */
+export function bandShift(color: { l: number; h: number }, lead: { l: number; h: number }): number {
+  const diff = color.l - lead.l - (expectedLightnessOffset(color.h) - expectedLightnessOffset(lead.h));
+  const excess = Math.abs(diff) - LIGHTNESS_BAND;
+  if (excess <= 0) return 0;
+  return -Math.sign(diff) * Math.min(excess, MAX_LIGHTNESS_SHIFT);
+}
+
+const LEVEL_RANK: Record<ContrastLevel, number> = { fail: 0, 'AA-large': 1, AA: 2, AAA: 3 };
+
+/** Whether the best text on `next` reads at least as well as on `original`, by WCAG level. */
+function keepsContrast(original: Oklch, next: Oklch): boolean {
+  return LEVEL_RANK[bestTextColor(next).level] >= LEVEL_RANK[bestTextColor(original).level];
+}
+
 /** Chroma within this of the peak counts as a tie when choosing a scale's anchor. */
 const CHROMA_TIE = 0.002;
 const MID_LIGHTNESS = 0.6;
@@ -130,6 +182,10 @@ export type HarmonizeOptions = {
   chromaHierarchy?: boolean;
   /** Add hue drift along each scale. */
   hueDrift?: boolean;
+  /** Pull supporting and accent hues toward the lead's. */
+  commonCast?: boolean;
+  /** Move supporting and accent colors' middle steps toward the lead's lightness. */
+  lightnessBand?: boolean;
 };
 
 export function harmonizePalette(
@@ -137,7 +193,12 @@ export function harmonizePalette(
   request: PaletteRequest,
   options: HarmonizeOptions = {},
 ): ModelPalette {
-  const { chromaHierarchy = request.saturation !== 'pure', hueDrift: drift = true } = options;
+  const {
+    chromaHierarchy = request.saturation !== 'pure',
+    hueDrift: drift = true,
+    commonCast = true,
+    lightnessBand = true,
+  } = options;
   const exact = exactColors(request);
 
   const parsed: Parsed[] = palette.colors.map((color) => {
@@ -158,7 +219,10 @@ export function harmonizePalette(
       holdsFirstExact: first !== undefined && p.steps.some(([, oklch]) => sameColor(first, oklch)),
     })),
   );
-  const leadPeak = parsed[kinds.indexOf('lead')]?.peak;
+  const lead = parsed[kinds.indexOf('lead')];
+  const leadPeak = lead?.peak;
+  const leadAnchor = lead && (lead.pinned ? lead.steps.find(([step]) => step === lead.pinned)?.[1] : mostColorful(lead.steps.map(([, c]) => c)));
+  const leadAt = (step: Step) => lead?.steps.find(([s]) => s === step)?.[1];
 
   const colors = parsed.map((p, i): ModelColor => {
     const cap =
@@ -171,12 +235,31 @@ export function harmonizePalette(
     // most colorful step (the one nearest the middle of the scale, if several tie).
     const anchor = p.pinned ? p.steps.find(([step]) => step === p.pinned)?.[1] : mostColorful(p.steps.map(([, c]) => c));
 
+    const follows = (kinds[i] === 'support' || kinds[i] === 'accent') && !p.pinned && anchor !== undefined;
+    const cast = commonCast && follows && leadAnchor ? castShift(anchor.h ?? 0, leadAnchor.h ?? 0) : 0;
+    const baseHue = normalizeHue((anchor?.h ?? 0) + cast);
+
+    let lightness = 0;
+    if (lightnessBand && follows) {
+      const ref = BAND_STEPS.find((step) => leadAt(step) && p.steps.some(([s]) => s === step));
+      const mine = p.steps.find(([s]) => s === ref)?.[1];
+      const theirs = ref && leadAt(ref);
+      if (mine && theirs) lightness = bandShift({ l: mine.l, h: baseHue }, { l: theirs.l, h: theirs.h ?? 0 });
+    }
+
     const steps = Object.fromEntries(
       p.steps.map(([step, original]) => {
         if (step === p.pinned || !anchor) return [step, p.color.steps[step]!];
         let next: Oklch = { ...original, c: original.c * scale };
-        if (drift && original.c > 0) {
-          next.h = normalizeHue((anchor.h ?? 0) + hueDrift(anchor.h ?? 0, original.l, anchor.l));
+        if (original.c > 0) {
+          next.h = drift
+            ? normalizeHue(baseHue + hueDrift(baseHue, original.l, anchor.l))
+            : normalizeHue((original.h ?? 0) + cast);
+        }
+        const shift = lightness * (BAND_TAPER[step] ?? 0);
+        if (shift !== 0) {
+          const moved = { ...next, l: Math.min(1, Math.max(0, next.l + shift)) };
+          if (keepsContrast(original, moved)) next = moved;
         }
         if (isInSrgb(original)) next = fitSrgb(next);
         const formatted = formatOklch(next);

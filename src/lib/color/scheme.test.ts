@@ -53,6 +53,6 @@ describe('checkScheme', () => {
   });
 
   it('flags a palette that does not match', () => {
-    expect(checkScheme([[swatch(0)], [swatch(90)]], 'complementary').matches).toBe(false);
+    expect(checkScheme([[swatch(0)], [swatch(180)]], 'analogous').matches).toBe(false);
   });
 });
