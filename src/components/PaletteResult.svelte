@@ -11,6 +11,10 @@
 
   type Props = {
     source: ModelPalette;
+    /** The agent's palette before balancing, when balancing changed it. */
+    original?: ModelPalette;
+    /** What balancing changed. */
+    notes?: string[];
     format: TokenFormat;
     system: ColorSystem;
     namingPattern: string;
@@ -22,10 +26,17 @@
     onCancel: () => void;
   };
 
-  let { source, format, system, namingPattern, busy, status, error, onRegenerate, onRefine, onCancel }: Props = $props();
+  let { source, original, notes = [], format, system, namingPattern, busy, status, error, onRegenerate, onRefine, onCancel }: Props = $props();
 
   const id = $props.id();
-  const palette = $derived(resolvePalette(source, system));
+  /** Show the agent's original instead of the balanced palette. Resets when the palette changes. */
+  let showOriginal = $state(false);
+  $effect(() => {
+    void source;
+    showOriginal = false;
+  });
+  const shown = $derived(showOriginal && original ? original : source);
+  const palette = $derived(resolvePalette(shown, system));
   const formatted = $derived.by(() => {
     try {
       return { tokens: formatPalette(palette, { format, namingPattern }) };
@@ -143,6 +154,26 @@
       </form>
     {/if}
     {#if palette.rationale}<p class="rationale text-on-surface-variant">{palette.rationale}</p>{/if}
+    {#if original}
+      <div class="balance flex flex-col items-start gap-2 text-sm text-on-surface-variant sm:flex-row sm:items-center sm:gap-3">
+        <p class="min-w-0 sm:flex-1" aria-live="polite">
+          {#if showOriginal}
+            Showing the agent's original palette, before Palletter balanced it.
+          {:else}
+            <span class="font-medium text-on-surface">Balanced.</span>
+            {notes.length ? notes.join(' ') : 'Palletter made small adjustments.'}
+          {/if}
+        </p>
+        <Button
+          label={showOriginal ? 'Show balanced' : "Show the agent's original"}
+          variant="soft"
+          color="surface"
+          size="xs"
+          aria-pressed={showOriginal}
+          onclick={() => (showOriginal = !showOriginal)}
+        />
+      </div>
+    {/if}
     {#if !palette.schemeCheck.matches}
       <p class="text-sm text-warning">
         These hues are about {Math.round(palette.schemeCheck.deviation)}° away from a {palette.scheme} scheme.

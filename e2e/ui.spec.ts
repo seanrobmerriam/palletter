@@ -16,6 +16,37 @@ async function choose(page: Page, label: string, option: string) {
 const create = (page: Page) => page.getByRole('button', { name: 'Create' });
 
 test.describe('generator form', () => {
+  test('compares a balanced palette with the agent\'s original', async ({ page }) => {
+    await open(page);
+    await section(page, 'Schemes').click();
+    await page.getByLabel('Monochromatic').uncheck();
+    await page.getByLabel('Triadic').check();
+    await create(page).click();
+    await expect(page.getByText(/^Balanced\./)).toBeVisible();
+    await expect(page.getByText('Softened color 2 and color 3 so color 1 leads.')).toBeVisible();
+
+    const swatch = page.locator('.swatch').nth(16); // color 2, step 500
+    const balanced = await swatch.getAttribute('aria-label');
+    const toggle = page.getByRole('button', { name: "Show the agent's original" });
+    await toggle.click();
+    await expect(page.getByText("Showing the agent's original palette")).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Show balanced' })).toHaveAttribute('aria-pressed', 'true');
+    expect(await swatch.getAttribute('aria-label')).not.toBe(balanced);
+    await expect(page.locator('pre code')).toContainText('--color-color-2-500: oklch(63% 0.05');
+  });
+
+  test('can turn balancing off', async ({ page }) => {
+    await open(page);
+    await section(page, 'Saturation').click();
+    await page.getByRole('switch', { name: 'Balance the palette' }).click();
+    await expect(section(page, 'Saturation')).toContainText('not balanced');
+    const requestPromise = page.waitForRequest('/api/palettes');
+    await create(page).click();
+    expect((await requestPromise).postDataJSON()).toMatchObject({ balance: false });
+    await expect(page.getByRole('status').filter({ hasText: 'Created 1 palette.' })).toBeVisible();
+    await expect(page.getByRole('button', { name: "Show the agent's original" })).toHaveCount(0);
+  });
+
   test('shows that the agent is ready', async ({ page }) => {
     await open(page);
     await expect(page.locator('.agent-status')).toHaveText(/Ready/);

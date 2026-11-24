@@ -22,6 +22,8 @@ export type FormState = {
   count: number;
   saturation: SaturationChoice;
   customSaturation: string;
+  /** Let Palletter balance the palette. */
+  balance: boolean;
   colorSystem: ColorSystem;
   roles: RoleRow[];
   schemes: Scheme[];
@@ -39,6 +41,7 @@ export function initialFormState(): FormState {
     count: 5,
     saturation: '',
     customSaturation: '',
+    balance: true,
     colorSystem: 'oklch',
     roles: [],
     schemes: ['monochromatic'],
@@ -78,6 +81,7 @@ export function toRequestInput(state: FormState): PaletteRequestInput {
   } else if (state.saturation) {
     input.saturation = state.saturation;
   }
+  if (!state.balance) input.balance = false;
   const roles = state.roles.filter((r) => r.role.trim());
   if (roles.length) {
     input.roles = roles.map((r) => ({ role: r.role.trim(), ...(r.temperature ? { temperature: r.temperature } : {}) }));
@@ -166,11 +170,11 @@ export function summaries(state: FormState): Record<'format' | 'scale' | 'satura
     format: state.tokenFormat === 'css' ? `${FORMAT_LABELS.css}, ${state.namingPattern}` : FORMAT_LABELS[state.tokenFormat],
     scale: state.scaleKind === 'full' ? `Full scale, ${steps}` : steps,
     saturation:
-      state.saturation === ''
+      (state.saturation === ''
         ? 'Let the agent decide'
         : state.saturation === 'custom'
           ? state.customSaturation.trim() || 'Custom'
-          : state.saturation[0]!.toUpperCase() + state.saturation.slice(1),
+          : state.saturation[0]!.toUpperCase() + state.saturation.slice(1)) + (state.balance ? '' : ', not balanced'),
     system: state.colorSystem,
     roles: roles.length
       ? roles.map((r) => (r.temperature ? `${r.role.trim()} (${r.temperature})` : r.role.trim())).join(', ')

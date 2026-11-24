@@ -195,11 +195,28 @@ export type HarmonizeOptions = {
   lightnessBand?: boolean;
 };
 
-export function harmonizePalette(
+/** "a", "a and b", "a, b, and c". */
+function listNames(names: string[]): string {
+  if (names.length <= 2) return names.join(' and ');
+  return `${names.slice(0, -1).join(', ')}, and ${names.at(-1)}`;
+}
+
+export type HarmonizeResult = {
+  palette: ModelPalette;
+  /** What balancing changed, in plain sentences for the user. Empty when nothing changed. */
+  notes: string[];
+};
+
+export function harmonizePalette(palette: ModelPalette, request: PaletteRequest, options: HarmonizeOptions = {}): ModelPalette {
+  return harmonizeWithNotes(palette, request, options).palette;
+}
+
+/** Balance a palette, and describe what changed. */
+export function harmonizeWithNotes(
   palette: ModelPalette,
   request: PaletteRequest,
   options: HarmonizeOptions = {},
-): ModelPalette {
+): HarmonizeResult {
   const {
     chromaHierarchy = request.saturation !== 'pure',
     hueDrift: drift = true,
@@ -231,6 +248,11 @@ export function harmonizePalette(
   const leadAnchor = lead && (lead.pinned ? lead.steps.find(([step]) => step === lead.pinned)?.[1] : mostColorful(lead.steps.map(([, c]) => c)));
   const leadAt = (step: Step) => lead?.steps.find(([s]) => s === step)?.[1];
 
+  const softened: string[] = [];
+  const pulled: string[] = [];
+  const evened: string[] = [];
+  let drifted = false;
+
   const colors = parsed.map((p, i): ModelColor => {
     const cap =
       chromaHierarchy && kinds[i] === 'support' && !p.pinned && leadPeak !== undefined
@@ -254,6 +276,7 @@ export function harmonizePalette(
       if (mine && theirs) lightness = bandShift({ l: mine.l, h: baseHue }, { l: theirs.l, h: theirs.h ?? 0 });
     }
 
+    let moved_ = false;
     const steps = Object.fromEntries(
       p.steps.map(([step, original]) => {
         if (step === p.pinned || !anchor) return [step, p.color.steps[step]!];
@@ -262,11 +285,17 @@ export function harmonizePalette(
           next.h = drift
             ? normalizeHue(baseHue + hueDrift(baseHue, original.l, anchor.l))
             : normalizeHue((original.h ?? 0) + cast);
+          if (drift && original.c >= NEUTRAL_PEAK_CHROMA && hueDistance(next.h, normalizeHue((original.h ?? 0) + cast)) >= 0.5) {
+            drifted = true;
+          }
         }
         const shift = lightness * (BAND_TAPER[step] ?? 0);
         if (shift !== 0) {
           const moved = { ...next, l: Math.min(1, Math.max(0, next.l + shift)) };
-          if (keepsContrast(original, moved)) next = moved;
+          if (keepsContrast(original, moved)) {
+            next = moved;
+            moved_ = true;
+          }
         }
         if (isInSrgb(original)) next = fitSrgb(next);
         const formatted = formatOklch(next);
@@ -274,8 +303,18 @@ export function harmonizePalette(
         return [step, formatted === formatOklch(original) ? p.color.steps[step]! : formatted];
       }),
     );
+    if (scale < 0.99) softened.push(p.color.name);
+    if (Math.abs(cast) >= 1) pulled.push(p.color.name);
+    if (moved_) evened.push(p.color.name);
     return { ...p.color, steps };
   });
 
-  return { ...palette, colors };
+  const leadName = lead?.color.name ?? 'the primary';
+  const notes: string[] = [];
+  if (softened.length) notes.push(`Softened ${listNames(softened)} so ${leadName} leads.`);
+  if (pulled.length) notes.push(`Pulled ${listNames(pulled)} toward ${leadName}'s hue so the colors look related.`);
+  if (evened.length) notes.push(`Evened out the lightness of ${listNames(evened)} to match ${leadName}.`);
+  if (drifted) notes.push('Shifted each scale\'s hue slightly from light to dark, as real pigments do.');
+
+  return { palette: { ...palette, colors }, notes };
 }

@@ -88,7 +88,9 @@ A palette where every color is equally saturated looks harsh, whatever the schem
 - **Common cast.** Supporting and accent hues are pulled a tenth of the way toward the primary's hue, up to 12°, like one light falling on a whole scene. Even triadic and tetradic palettes look related.
 - **Lightness band.** The middle steps (300–700) of supporting and accent colors move toward the primary's lightness, so no color looks heavier than the others. Yellows, ambers, and limes are allowed to sit lighter, and a step never moves if that would make its text contrast worse.
 
-Your exact colors are never changed, and a color that contains one isn't capped, pulled, or moved. With **Pure** saturation, supporting colors aren't capped either. Colors that fit in sRGB still fit after balancing.
+Your exact colors are never changed, and a color that contains one isn't capped, pulled, or moved.
+
+Each balanced palette says what Palletter changed, and **Show the agent's original** switches the swatches and tokens to the palette exactly as the agent made it, so you can compare and copy either one. To skip balancing altogether, turn off **Balance the palette** under Saturation. With **Pure** saturation, supporting colors aren't capped either. Colors that fit in sRGB still fit after balancing.
 
 ## Saturation
 

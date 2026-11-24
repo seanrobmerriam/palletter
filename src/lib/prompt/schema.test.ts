@@ -19,6 +19,7 @@ describe('PaletteRequestSchema', () => {
       namingPattern: DEFAULT_NAMING_PATTERN,
       scale: { kind: 'full' },
       colorSystem: 'oklch',
+      balance: true,
       schemes: ['monochromatic'],
     });
   });

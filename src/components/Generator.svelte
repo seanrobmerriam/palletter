@@ -12,6 +12,7 @@
     Input,
     InputNumber,
     RadioGroup,
+    Switch,
     Select,
   } from 'sv5ui';
   import {
@@ -46,6 +47,10 @@
   type Result = {
     scheme: Scheme;
     source: ModelPalette;
+    /** The agent's palette before balancing, when balancing changed it. */
+    original?: ModelPalette;
+    /** What balancing changed. */
+    notes: string[];
     sessionId: string | null;
     busy: boolean;
     status: string;
@@ -239,9 +244,19 @@
       const existing = results.find((r) => r.scheme === event.source.scheme);
       if (existing) {
         existing.source = event.source;
+        existing.original = event.original;
+        existing.notes = event.notes;
         existing.error = undefined;
       } else {
-        results.push({ scheme: event.source.scheme, source: event.source, sessionId: null, busy: false, status: '' });
+        results.push({
+          scheme: event.source.scheme,
+          source: event.source,
+          ...(event.original ? { original: event.original } : {}),
+          notes: event.notes,
+          sessionId: null,
+          busy: false,
+          status: '',
+        });
       }
     } else if (event.type === 'session') {
       for (const r of results) if (!scheme || r.scheme === scheme) r.sessionId = event.id;
@@ -496,6 +511,13 @@
                   <Input bind:value={form.customSaturation} placeholder="e.g. dusty, like faded fabric" class="w-full" />
                 </FormField>
               {/if}
+              <Switch
+                id="{id}-balance"
+                bind:checked={form.balance}
+                label="Balance the palette"
+                description="Let one color lead, soften the others, and tie their hues and lightness together. You can compare with the agent's original on each palette."
+                class="mt-3"
+              />
             {:else if item.value === 'system'}
               <RadioGroup items={SYSTEM_ITEMS} bind:value={form.colorSystem} orientation="horizontal" aria-label="Color system" />
               {#if form.colorSystem === 'cmyk'}
@@ -599,6 +621,8 @@
       {#each results as item (item.scheme)}
         <PaletteResult
           source={item.source}
+          original={item.original}
+          notes={item.notes}
           format={view.format}
           system={view.system}
           namingPattern={view.namingPattern}

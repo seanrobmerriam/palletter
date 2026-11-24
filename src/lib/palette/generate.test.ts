@@ -45,6 +45,21 @@ describe('generatePalettes', () => {
     expect(palettes[0]!.tokens).toMatch(/^@theme \{\n {2}--color-color-1-100: #[0-9a-f]{6};/);
   });
 
+  it('sends the original palette and notes when balancing changed it', async () => {
+    const events = await run({ hues: [{ value: '#2563eb' }], schemes: ['triadic'] });
+    const palette = events.find((e) => e.type === 'palette');
+    expect(palette?.original).toBeDefined();
+    expect(palette?.original).not.toEqual(palette?.source);
+    expect(palette?.notes.length).toBeGreaterThan(0);
+  });
+
+  it('leaves the palette alone when balance is off', async () => {
+    const events = await run({ hues: [{ value: '#2563eb' }], schemes: ['triadic'], balance: false });
+    const palette = events.find((e) => e.type === 'palette');
+    expect(palette).not.toHaveProperty('original');
+    expect(palette?.notes).toEqual([]);
+  });
+
   it('uses roles from the request', async () => {
     const events = await run({ hues: [{ name: 'blue' }], roles: [{ role: 'primary' }, { role: 'accent' }] });
     const palette = events.find((e) => e.type === 'palette');

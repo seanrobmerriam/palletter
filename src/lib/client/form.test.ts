@@ -63,6 +63,12 @@ describe('toRequestInput', () => {
     expect(input).not.toHaveProperty('namingPattern');
   });
 
+  it('sends balance only when it is turned off', () => {
+    expect(toRequestInput(state({ balance: false })).balance).toBe(false);
+    expect(summaries(state({ balance: false })).saturation).toBe('Let the agent decide, not balanced');
+    expect(summaries(initialFormState()).saturation).toBe('Let the agent decide');
+  });
+
   it('sends a count scale', () => {
     expect(toRequestInput(state({ scaleKind: 'count', count: 3 })).scale).toEqual({ kind: 'count', count: 3 });
   });
