@@ -10,6 +10,7 @@ import { parseModelResponse } from '../prompt/parse';
 import { buildRefinePrompt } from '../prompt/refine';
 import { buildRepairPrompt } from '../prompt/repair';
 import type { ModelPalette, PaletteRequest, Scheme } from '../prompt/schema';
+import { harmonizePalette } from './harmonize';
 import { resolvePalette, type ResolvedPalette } from './resolve';
 
 export type GenerateStage = 'starting' | 'thinking' | 'writing' | 'checking' | 'repairing';
@@ -18,8 +19,8 @@ export type GenerateEvent =
   | { type: 'status'; stage: GenerateStage; message: string }
   | { type: 'warning'; message: string }
   /**
-   * One palette. `source` is the palette exactly as the model gave it (oklch), so clients can
-   * convert and format it again without asking the model.
+   * One palette. `source` is the model's palette (oklch) after Palletter has balanced it, so
+   * clients can convert and format it again without asking the model.
    */
   | { type: 'palette'; palette: ResolvedPalette; tokens: string; source: ModelPalette }
   /** The agent session is kept open for refinements, under this id. */
@@ -97,7 +98,8 @@ async function runTurn(
 
   for (const warning of result.warnings) emit({ type: 'warning', message: warning });
 
-  for (const source of result.response.palettes) {
+  for (const reply of result.response.palettes) {
+    const source = harmonizePalette(reply, request);
     const palette = resolvePalette(source, request.colorSystem);
     const tokens = formatPalette(palette, { format: request.tokenFormat, namingPattern: request.namingPattern });
     emit({ type: 'palette', palette, tokens, source });

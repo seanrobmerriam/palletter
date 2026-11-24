@@ -43,6 +43,16 @@ Palletter warns the user when a palette strays more than 35° from the scheme, s
 
 ## Balance
 
-- Decide which color leads. In most palettes one color is the brand or primary color, and the others support it.
-- Supporting colors can have less chroma than the leading color, so they don't compete with it.
-- If the user wants a neutral, make it a grey with a little chroma (0.005–0.02) in the leading color's hue. This makes it feel part of the palette. A neutral doesn't count toward the scheme's hues.
+Palettes look harsh when every color is equally loud. Real designs give each color a job, and the job sets how much chroma it gets. The scheme decides the hues; the roles decide how loud each one is.
+
+| Role | Peak chroma | Used for |
+| ---- | ----------- | -------- |
+| Primary (leads) | The full chroma the saturation asks for | Brand, main actions. The one color people remember. |
+| Secondary, tertiary (support) | About 50–70% of the primary's peak | Secondary actions, illustrations, charts, highlights that sit behind the primary. |
+| Accent | Up to the primary's peak | Small doses only: a badge, a call to action, a focus ring. |
+| Neutral | 0.005–0.02 | Backgrounds, surfaces, borders, body text. Most of the screen. |
+
+- Exactly one color leads. If the request lists roles, the first role leads unless another role is clearly the primary or brand.
+- Palletter caps supporting colors at 70% of the primary's peak chroma, unless the saturation is `pure` or the color holds the user's exact value. Choose supporting colors that look right at that level instead of relying on the cap.
+- In complementary, triadic, and tetradic schemes, soften the colors opposite the primary. A muted complement looks designed; two full-chroma opposites look like a sports kit.
+- Make neutrals a grey with a little chroma in the primary's hue. This makes them feel part of the palette. A neutral doesn't count toward the scheme's hues.
