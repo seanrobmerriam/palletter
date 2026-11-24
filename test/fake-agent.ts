@@ -27,6 +27,10 @@ const SCHEME_HUES: Record<string, number[]> = {
   'split-complementary': [0, 150, 210],
   triadic: [0, 120, 240],
   tetradic: [0, 60, 180, 240],
+  tonal: [-15, 0, 15],
+  'neutral-accent': [0, 180],
+  functional: [0, 0, 140, 80, 25, 230],
+  sourced: [0, 40, 200],
 };
 
 type Mode = 'good' | 'bad-then-good' | 'bad' | 'no-json' | 'slow' | 'pause' | 'permission' | 'crash' | 'auth';
@@ -36,14 +40,15 @@ function palettesFor(
   { dropStep = false, rationale = 'A fake palette.', only, hueShift = 0 }: { dropStep?: boolean; rationale?: string; only?: string; hueShift?: number } = {},
 ) {
   const requestPart = prompt.slice(prompt.indexOf('# Palette request'));
-  const schemes = [...requestPart.matchAll(/^- (monochromatic|analogous|complementary|split-complementary|triadic|tetradic):/gm)].map((m) => m[1]!);
+  const schemes = [...requestPart.matchAll(new RegExp(`^- (${Object.keys(SCHEME_HUES).join('|')}):`, 'gm'))].map((m) => m[1]!);
   const steps = (/Every color must have exactly these steps: ([\d, ]+)\./.exec(requestPart)?.[1] ?? '500').split(', ');
   const rolesSection = /## Roles\n([\s\S]*?)\n## /.exec(requestPart)?.[1] ?? '';
-  const roles = [...rolesSection.matchAll(/^- "([^"]+)"/gm)].map((m) => m[1]!);
+  const requestRoles = [...rolesSection.matchAll(/^- "([^"]+)"/gm)].map((m) => m[1]!);
 
   return {
     palettes: schemes.filter((scheme) => !only || scheme === only).map((scheme) => {
       const offsets = SCHEME_HUES[scheme]!;
+      const roles = scheme === 'functional' ? [...(requestRoles.length ? requestRoles : ['primary', 'neutral']), 'success', 'warning', 'danger', 'info'] : requestRoles;
       const count = roles.length || offsets.length;
       return {
         scheme,

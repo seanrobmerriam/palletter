@@ -142,6 +142,26 @@ describe('parseModelResponse', () => {
     });
   });
 
+  it('requires every semantic role in a functional palette', () => {
+    const colors = ['primary', 'neutral', 'success', 'danger'].map((role) => color(role, undefined, role));
+    expect(parseModelResponse(reply({ palettes: [palette('functional', colors)] }), request({ schemes: ['functional'] }))).toEqual({
+      ok: false,
+      problems: [
+        'In the functional palette, no color has the role "warning", "info". A functional palette needs a color for each of success, warning, danger, info.',
+      ],
+    });
+  });
+
+  it('accepts a functional palette with every semantic role, on top of the requested roles', () => {
+    const roles = ['brand', 'neutral', 'Success', 'warning', 'danger', 'info'];
+    const colors = roles.map((role) => color(role.toLowerCase(), undefined, role));
+    const result = parseModelResponse(
+      reply({ palettes: [palette('functional', colors)] }),
+      request({ schemes: ['functional'], roles: [{ role: 'brand' }, { role: 'neutral' }] }),
+    );
+    expect(result.ok).toBe(true);
+  });
+
   it('skips an unrelated JSON block and uses the response', () => {
     const text = `${reply({ palettes: [palette('monochromatic')] })}\n\nSettings I used:\n\`\`\`json\n{"temperature": 0.5}\n\`\`\``;
     expect(parseModelResponse(text, request()).ok).toBe(true);

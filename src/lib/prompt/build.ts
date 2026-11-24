@@ -6,7 +6,16 @@
  */
 import { anyToOklch, formatOklch } from '../color/convert';
 import { ACHROMATIC_CHROMA, SCHEME_OFFSETS, schemeHues } from '../color/scheme';
-import { DEFAULT_NAMING_PATTERN, resolveSteps, type PaletteRequest, type Saturation, type Scheme } from './schema';
+import {
+  DEFAULT_NAMING_PATTERN,
+  isCharacterScheme,
+  resolveSteps,
+  SEMANTIC_ROLES,
+  type CharacterScheme,
+  type PaletteRequest,
+  type Saturation,
+  type Scheme,
+} from './schema';
 import { SKILL_FILES, type SkillFile } from './skills';
 
 /** Quote text the user typed, so it reads as data rather than as part of the instructions. */
@@ -34,7 +43,18 @@ function describeHue(hue: PaletteRequest['hues'][number]): string {
   return `${quote(hue.name!)}. The user named this color; choose a value that matches the name.`;
 }
 
+/** What each character scheme asks for. See color-theory.md, "Schemes defined by character". */
+const CHARACTER_DESCRIPTIONS: Record<CharacterScheme, string> = {
+  'neutral-accent': 'a primary, a neutral tinted with it, and at most one accent at any hue that suits the mood',
+  functional: `a primary, a neutral, and the semantic colors ${SEMANTIC_ROLES.join(', ')}, tuned to the primary`,
+  sourced: 'colors drawn from a real scene, material, or style that fits the hues and mood; say in the rationale what it was drawn from',
+};
+
 function describeScheme(scheme: Scheme, base: number | undefined): string {
+  if (isCharacterScheme(scheme)) {
+    const primary = base === undefined ? 'a primary hue you choose' : `the primary at hue ${deg(base)}`;
+    return `- ${scheme}: ${CHARACTER_DESCRIPTIONS[scheme].replace('a primary', primary)} (see color-theory.md).`;
+  }
   const offsets = SCHEME_OFFSETS[scheme].map(signed).join(', ');
   if (scheme === 'monochromatic') {
     return base === undefined ? '- monochromatic: one hue, which you choose.' : `- monochromatic: hue ${deg(base)}.`;

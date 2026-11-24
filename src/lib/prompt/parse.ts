@@ -6,6 +6,7 @@ import type { z } from 'zod';
 import {
   ModelResponseSchema,
   resolveSteps,
+  SEMANTIC_ROLES,
   STEPS,
   type ModelPalette,
   type ModelResponse,
@@ -101,6 +102,15 @@ function checkAgainstRequest(
       problems.push(
         `In the ${scheme} palette, no color has the role ${missingRoles.map((r) => `"${r.role}"`).join(', ')}. Make one color for each role.`,
       );
+    }
+
+    if (scheme === 'functional') {
+      const missingSemantic = SEMANTIC_ROLES.filter((role) => !roles.has(role));
+      if (missingSemantic.length) {
+        problems.push(
+          `In the functional palette, no color has the role ${missingSemantic.map((r) => `"${r}"`).join(', ')}. A functional palette needs a color for each of ${SEMANTIC_ROLES.join(', ')}.`,
+        );
+      }
     }
 
     palettes.push({ ...palette, colors });

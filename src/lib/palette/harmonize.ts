@@ -53,8 +53,10 @@ const BAND_STEPS: Step[] = ['500', '600', '400', '700', '300'];
 const LEAD_ROLE = /\b(primary|brand|main|lead)\b/i;
 const ACCENT_ROLE = /\b(accent|highlight|pop|cta)\b/i;
 const NEUTRAL_ROLE = /\b(neutral|gr[ae]y|surface|background)\b/i;
+/** Status colors keep their own hue and strength, so success still reads as green and danger as red. */
+const SEMANTIC_ROLE = /\b(success|positive|warning|caution|danger|error|negative|info|information)\b/i;
 
-export type ColorKind = 'lead' | 'support' | 'accent' | 'neutral';
+export type ColorKind = 'lead' | 'support' | 'accent' | 'neutral' | 'semantic';
 
 type Parsed = { color: ModelColor; steps: [Step, Oklch][]; peak: number; pinned?: Step };
 
@@ -72,14 +74,19 @@ function sameColor(a: Oklch, b: Oklch): boolean {
   return Math.max(a.c, b.c) < 0.03 || hueDistance(a.h ?? 0, b.h ?? 0) <= 2;
 }
 
-/** Which colors lead, support, accent, or are neutral. Exactly one color leads, if any is colorful. */
+/**
+ * Which colors lead, support, accent, are neutral, or carry a status (semantic). Exactly one color
+ * leads, if any is colorful. Semantic colors are never capped, cast, or moved in lightness.
+ */
 export function classifyColors(
   colors: { role?: string; peak: number; holdsFirstExact?: boolean }[],
 ): ColorKind[] {
-  const kinds: ColorKind[] = colors.map((c) =>
-    c.peak < NEUTRAL_PEAK_CHROMA || (c.role && NEUTRAL_ROLE.test(c.role)) ? 'neutral' : 'support',
-  );
-  const candidates = colors.map((_, i) => i).filter((i) => kinds[i] !== 'neutral');
+  const kinds: ColorKind[] = colors.map((c) => {
+    if (c.peak < NEUTRAL_PEAK_CHROMA || (c.role && NEUTRAL_ROLE.test(c.role))) return 'neutral';
+    if (c.role && SEMANTIC_ROLE.test(c.role)) return 'semantic';
+    return 'support';
+  });
+  const candidates = colors.map((_, i) => i).filter((i) => kinds[i] === 'support');
   const lead =
     candidates.find((i) => LEAD_ROLE.test(colors[i]!.role ?? '')) ??
     candidates.find((i) => colors[i]!.holdsFirstExact) ??
