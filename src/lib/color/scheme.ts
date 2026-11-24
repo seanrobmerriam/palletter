@@ -3,17 +3,28 @@
  * the model as a starting point, and Palletter warns when a result strays far from them.
  */
 import type { Oklch } from 'culori';
-import type { Scheme } from '../prompt/schema';
+import { isCharacterScheme, type CharacterScheme, type Scheme } from '../prompt/schema';
 
-/** Hue offsets in degrees from the base hue. Tetradic uses the rectangle form. */
-export const SCHEME_OFFSETS: Record<Scheme, readonly number[]> = {
+export type AngleScheme = Exclude<Scheme, CharacterScheme>;
+
+/**
+ * Hue offsets in degrees from the base hue. Tetradic uses the rectangle form. Character schemes
+ * (neutral + accent, functional, sourced) have no reference angles.
+ */
+export const SCHEME_OFFSETS: Record<AngleScheme, readonly number[]> = {
   monochromatic: [0],
   analogous: [-30, 0, 30],
   complementary: [0, 180],
   'split-complementary': [0, 150, 210],
   triadic: [0, 120, 240],
   tetradic: [0, 60, 180, 240],
+  tonal: [-15, 0, 15],
 };
+
+/** The scheme's reference offsets, or `undefined` for a character scheme. */
+export function schemeOffsets(scheme: Scheme): readonly number[] | undefined {
+  return isCharacterScheme(scheme) ? undefined : SCHEME_OFFSETS[scheme];
+}
 
 export const normalizeHue = (h: number) => ((h % 360) + 360) % 360;
 
@@ -23,9 +34,9 @@ export function hueDistance(a: number, b: number): number {
   return d > 180 ? 360 - d : d;
 }
 
-/** The reference hues of a scheme for a base hue. */
+/** The reference hues of a scheme for a base hue. A character scheme has only the base hue. */
 export function schemeHues(baseHue: number, scheme: Scheme): number[] {
-  return SCHEME_OFFSETS[scheme].map((offset) => normalizeHue(baseHue + offset));
+  return (schemeOffsets(scheme) ?? [0]).map((offset) => normalizeHue(baseHue + offset));
 }
 
 /** Below this chroma a color reads as grey, so its hue doesn't count. */
@@ -42,11 +53,12 @@ export function representativeHue(steps: Oklch[]): number | undefined {
 /**
  * How far a set of hues is from the scheme: the largest distance, in degrees, between any hue and
  * its nearest reference hue, using whichever base hue fits best. 0 is a perfect fit.
- * Returns 0 when there are no hues (an all-grey palette fits any scheme).
+ * Returns 0 when there are no hues (an all-grey palette fits any scheme), and for a character
+ * scheme, which has no reference angles.
  */
 export function schemeDeviation(hues: number[], scheme: Scheme): number {
-  if (hues.length === 0) return 0;
-  const offsets = SCHEME_OFFSETS[scheme];
+  const offsets = schemeOffsets(scheme);
+  if (hues.length === 0 || !offsets) return 0;
   const worstFor = (base: number) => {
     const targets = schemeHues(base, scheme);
     return Math.max(...hues.map((h) => Math.min(...targets.map((t) => hueDistance(h, t)))));

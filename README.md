@@ -67,6 +67,15 @@ A palette type (or scheme) describes how the hues in the palette relate to each 
 | **Split-complementary** | Base plus the 2 hues next to its complement (about 150° and 210°) | Contrast with less tension than complementary. |
 | **Triadic** | 3 evenly spaced hues (120°) | Vibrant, balanced palettes. Usually one hue dominates. |
 | **Tetradic** | 4 hues in two complementary pairs (rectangle or square) | Rich palettes with many options. Hardest to balance. |
+| **Tonal** | 3 close hues (about 15° apart) that differ in depth and softness | A more refined take on analogous. |
+
+Some palettes are better described by what each color does than by angles on the wheel. Palletter doesn't check these against reference angles:
+
+| Scheme | Colors | What it's good for |
+| ------ | ------ | ------------------ |
+| **Neutral + accent** | A brand color, a tinted neutral scale, and an optional accent | What most products ship. Neutrals carry the screen and the brand color stands out. |
+| **Functional UI** | A brand color, a neutral, and success, warning, danger, and info | Application UI. The status colors still read as green, amber, red, and blue, but are tuned to your brand. |
+| **Sourced** | 3 to 5 colors drawn from a scene, material, or style | Palettes with a story, such as "desert dusk" or "Scandinavian interior". Name the source in the mood. |
 
 The angles are a starting point. The Palletter skills tell the model to adjust hues, lightness, and chroma so the result looks good, rather than placing colors on exact angles. Palletter warns when a palette's hues stray more than 47° from the scheme: 35° of leeway for the model, plus up to 12° from Palletter's own common cast.
 

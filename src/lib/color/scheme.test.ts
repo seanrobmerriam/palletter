@@ -55,4 +55,16 @@ describe('checkScheme', () => {
   it('flags a palette that does not match', () => {
     expect(checkScheme([[swatch(0)], [swatch(180)]], 'analogous').matches).toBe(false);
   });
+
+  it('checks tonal palettes for close hues', () => {
+    expect(checkScheme([[swatch(240)], [swatch(250)], [swatch(265)]], 'tonal').matches).toBe(true);
+    expect(checkScheme([[swatch(250)], [swatch(30)]], 'tonal').matches).toBe(false);
+  });
+
+  it('never flags a character scheme, which has no reference angles', () => {
+    for (const scheme of ['neutral-accent', 'functional', 'sourced'] as const) {
+      expect(checkScheme([[swatch(250)], [swatch(145)], [swatch(25)], [swatch(80)]], scheme)).toEqual({ deviation: 0, matches: true });
+      expect(schemeHues(250, scheme)).toEqual([250]);
+    }
+  });
 });

@@ -126,6 +126,24 @@ export const SCHEME_LABELS: Record<Scheme, string> = {
   'split-complementary': 'Split-complementary',
   triadic: 'Triadic',
   tetradic: 'Tetradic',
+  tonal: 'Tonal',
+  'neutral-accent': 'Neutral + accent',
+  functional: 'Functional UI',
+  sourced: 'Sourced',
+};
+
+/** One line under each scheme in the form. */
+export const SCHEME_DESCRIPTIONS: Record<Scheme, string> = {
+  monochromatic: 'One hue in many steps.',
+  analogous: 'Three neighboring hues.',
+  complementary: 'Two opposite hues.',
+  'split-complementary': 'A hue and the two beside its opposite.',
+  triadic: 'Three evenly spaced hues.',
+  tetradic: 'Two pairs of opposites.',
+  tonal: 'Close hues, varied in depth and softness.',
+  'neutral-accent': 'One brand color, tinted greys, and an optional accent.',
+  functional: 'Brand, neutral, and success, warning, danger, and info colors.',
+  sourced: 'Drawn from a real scene, material, or style.',
 };
 
 export function summaries(state: FormState): Record<'format' | 'scale' | 'saturation' | 'system' | 'roles' | 'schemes', string> {

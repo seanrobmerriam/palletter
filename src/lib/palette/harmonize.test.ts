@@ -261,3 +261,28 @@ describe('lightness band', () => {
     }
   });
 });
+
+describe('semantic colors', () => {
+  it('classifies status roles as semantic, never as the lead', () => {
+    expect(
+      classifyColors([
+        { role: 'danger', peak: 0.2 },
+        { role: 'primary', peak: 0.15 },
+        { role: 'success', peak: 0.17 },
+        { role: 'neutral', peak: 0.01 },
+      ]),
+    ).toEqual(['semantic', 'lead', 'semantic', 'neutral']);
+  });
+
+  it('keeps their hue and chroma, apart from the drift', () => {
+    const result = harmonizePalette(
+      { ...palette(scale('brand', 255, 0.12, 'primary'), scale('ok', 150, 0.17, 'success'), scale('stop', 25, 0.17, 'danger')), scheme: 'functional' },
+      request({ schemes: ['functional'] }),
+    );
+    const [, ok, stop] = result.colors;
+    expect(peak(ok!)).toBeCloseTo(0.17, 3);
+    expect(hueAt(ok!, '500')).toBeCloseTo(150, 0);
+    expect(hueAt(stop!, '500')).toBeCloseTo(25, 0);
+    expect(hueAt(stop!, '900')).not.toBeCloseTo(25, 0);
+  });
+});

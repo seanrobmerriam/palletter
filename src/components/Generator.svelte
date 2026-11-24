@@ -17,6 +17,7 @@
   import {
     errorFor,
     initialFormState,
+    SCHEME_DESCRIPTIONS,
     SCHEME_LABELS,
     STEPS,
     summaries,
@@ -117,7 +118,7 @@
     { value: 'count', label: 'A number of steps' },
   ];
   const SYSTEM_ITEMS = COLOR_SYSTEMS.map((system) => ({ value: system, label: system }));
-  const SCHEME_ITEMS = SCHEMES.map((scheme) => ({ value: scheme, label: SCHEME_LABELS[scheme] }));
+  const SCHEME_ITEMS = SCHEMES.map((scheme) => ({ value: scheme, label: SCHEME_LABELS[scheme], description: SCHEME_DESCRIPTIONS[scheme] }));
 
   type Section = 'format' | 'scale' | 'saturation' | 'system' | 'roles' | 'schemes';
   const SECTIONS: { value: Section; label: string; number: number }[] = [

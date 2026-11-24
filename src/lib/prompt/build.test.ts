@@ -85,6 +85,25 @@ describe('buildPrompt', () => {
   });
 });
 
+describe('character schemes', () => {
+  it('describes each one without reference angles', () => {
+    const prompt = requestPart({
+      hues: [{ value: '#2563eb' }],
+      schemes: ['tonal', 'neutral-accent', 'functional', 'sourced'],
+    });
+    expect(prompt).toMatch(/^- tonal: reference hues .*\(offsets −15°, 0°, \+15°/m);
+    expect(prompt).toMatch(/^- neutral-accent: the primary at hue [\d.]+°, a neutral tinted with it, and at most one accent/m);
+    expect(prompt).toMatch(/^- functional: the primary at hue [\d.]+°, a neutral, and the semantic colors success, warning, danger, info/m);
+    expect(prompt).toMatch(/^- sourced: colors drawn from a real scene/m);
+  });
+
+  it('lets the model choose the primary when there is no base hue', () => {
+    expect(requestPart({ hues: [{ name: 'blue' }], schemes: ['functional'] })).toMatch(
+      /^- functional: a primary hue you choose, a neutral, and the semantic colors/m,
+    );
+  });
+});
+
 describe('baseHue', () => {
   it('uses the first colorful hue value', () => {
     expect(baseHue(request({ hues: [{ name: 'sand' }, { value: '#808080' }, { value: '#2563eb' }] }))).toBeCloseTo(262.9, 0);

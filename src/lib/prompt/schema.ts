@@ -63,9 +63,25 @@ export const SCHEMES = [
   'split-complementary',
   'triadic',
   'tetradic',
+  'tonal',
+  'neutral-accent',
+  'functional',
+  'sourced',
 ] as const;
 export const SchemeSchema = z.enum(SCHEMES);
 export type Scheme = z.infer<typeof SchemeSchema>;
+
+/**
+ * Schemes defined by what each color does rather than by angles on the color wheel. Palletter
+ * doesn't check their hues against reference angles.
+ */
+export const CHARACTER_SCHEMES = ['neutral-accent', 'functional', 'sourced'] as const satisfies readonly Scheme[];
+export type CharacterScheme = (typeof CHARACTER_SCHEMES)[number];
+export const isCharacterScheme = (scheme: Scheme): scheme is CharacterScheme =>
+  (CHARACTER_SCHEMES as readonly Scheme[]).includes(scheme);
+
+/** The semantic roles every functional palette includes, besides its primary and neutral. */
+export const SEMANTIC_ROLES = ['success', 'warning', 'danger', 'info'] as const;
 
 export const COLOR_SYSTEMS = ['oklch', 'rgb', 'hex', 'hsl', 'cmyk'] as const;
 export const ColorSystemSchema = z.enum(COLOR_SYSTEMS);
@@ -172,7 +188,8 @@ export const ModelPaletteSchema = z.object({
   colors: z
     .array(ModelColorSchema)
     .min(1)
-    .max(8)
+    // Up to 6 requested roles, plus the neutral and 4 semantic colors of a functional palette.
+    .max(12)
     .refine((colors) => new Set(colors.map((c) => slugify(c.name))).size === colors.length, {
       message: 'Each color in a palette needs a different name',
     }),

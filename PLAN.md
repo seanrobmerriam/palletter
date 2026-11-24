@@ -223,13 +223,14 @@ Palettes built only from color-wheel angles, with every color at the same chroma
 - [x] Looser scheme check: the warning threshold is the model's 35° leeway plus `CAST_MAX`, so balancing never sets it off (`scheme.ts`). `color-theory.md` still asks the model to stay within 35°.
 - [x] Each step can be turned off through `HarmonizeOptions`, ready for the Balance option in step 4.
 
-**Step 3: schemes defined by character, not angles**
+**Step 3: schemes defined by character, not angles ✅**
 
-- [ ] Add schemes to `SCHEMES`, the form, `color-theory.md`, `SKILL.md`, the scheme check (no angle check for these), and the fake agent:
-  - [ ] **Neutral + accent:** one brand hue, a tinted neutral scale, and optionally one accent. What most products ship.
-  - [ ] **Functional UI:** primary, neutral, and semantic colors (success, warning, danger, info), with semantic hues and chroma tuned to the brand (a warm brand gets a warmer red and an olive-leaning green).
-  - [ ] **Sourced:** a palette drawn from a scene, material, film stock, or art movement the user names or the mood suggests (e.g. "desert dusk", "Scandinavian interior"). The rationale says what it was drawn from.
-  - [ ] **Tonal:** close hues with strong differences in lightness and chroma, as a more refined alternative to analogous.
+- [x] Added to `SCHEMES`, the form (with a one-line description under every scheme), `color-theory.md`, `SKILL.md`, the prompt builder, the scheme check, and the fake agent:
+  - [x] **Tonal:** an angle scheme with offsets −15°, 0°, +15°, and colors that differ strongly in lightness and chroma.
+  - [x] **Neutral + accent:** a primary, a tinted neutral scale, and at most one accent.
+  - [x] **Functional UI:** a primary, a neutral, and `success`, `warning`, `danger`, and `info` colors in fixed hue ranges, tuned to the primary. The parser asks for a repair if a semantic role is missing, and a palette may now have up to 12 colors (6 roles plus the neutral and 4 semantic colors). `harmonize.ts` classifies status roles as semantic and leaves their hue and chroma alone, apart from the hue drift.
+  - [x] **Sourced:** 3 to 5 colors drawn from a scene, material, or style the user names or the mood suggests, with the source named in the rationale.
+- [x] Neutral + accent, functional, and sourced are character schemes (`CHARACTER_SCHEMES`): they have no reference angles, so the scheme check never flags them.
 
 **Step 4: control and transparency**
 

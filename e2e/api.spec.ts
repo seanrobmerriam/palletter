@@ -48,6 +48,19 @@ test.describe('POST /api/palettes', () => {
     expect(received.at(-1)).toEqual({ type: 'done' });
   });
 
+  test('streams the character schemes', async ({ request }) => {
+    const response = await request.post('/api/palettes', {
+      data: { hues: [{ value: '#2563eb' }], schemes: ['tonal', 'neutral-accent', 'functional', 'sourced'] },
+    });
+    const received = events(await response.text());
+    type Palette = { scheme: string; colors: Array<{ role?: string }>; schemeCheck: { matches: boolean } };
+    const palettes = received.filter((e) => e.type === 'palette').map((e) => (e as Event & { palette: Palette }).palette);
+    expect(palettes.map((p) => p.scheme)).toEqual(['tonal', 'neutral-accent', 'functional', 'sourced']);
+    expect(palettes[2]!.colors.map((c) => c.role)).toEqual(['primary', 'neutral', 'success', 'warning', 'danger', 'info']);
+    expect(palettes.every((p) => p.schemeCheck.matches)).toBe(true);
+    expect(received.at(-1)).toEqual({ type: 'done' });
+  });
+
   test('rejects an invalid request with the problems', async ({ request }) => {
     const response = await request.post('/api/palettes', { data: { hues: [], schemes: ['pentadic'] } });
     expect(response.status()).toBe(400);
