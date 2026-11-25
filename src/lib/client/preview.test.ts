@@ -84,3 +84,46 @@ describe('themeStyle', () => {
     expect(style).toContain('--p-on-accent-soft: #');
   });
 });
+
+describe('previewThemes with roles', () => {
+  const scale = (hue: number, chroma: number) =>
+    Object.fromEntries(
+      (['50', '100', '200', '300', '400', '500', '600', '700', '800', '900', '950'] as const).map((step, i) => [
+        step,
+        `oklch(${[97, 94, 88, 81, 71, 63, 55, 48, 42, 37, 27][i]}% ${chroma} ${hue})`,
+      ]),
+    );
+  // Listed in an order where the first and second colors are not the page and accent colors.
+  const roles: ModelPalette = {
+    scheme: 'suggested',
+    rationale: '',
+    colors: [
+      { name: 'mint', role: 'primary', steps: scale(152, 0.12) },
+      { name: 'aqua', role: 'secondary', steps: scale(200, 0.09) },
+      { name: 'bronze', role: 'accent', steps: scale(67, 0.1) },
+      { name: 'sand', role: 'background', steps: scale(80, 0.012) },
+      { name: 'ink', role: 'text', steps: scale(255, 0.04) },
+    ],
+  };
+  const resolved = resolvePalette(roles, 'hex');
+  const hexes = (name: string) => resolved.colors.find((c) => c.name === name)!.swatches.map((s) => s.hex);
+  const { light, dark, uses } = previewThemes(resolved);
+
+  it('uses each color for the part its role describes', () => {
+    expect(uses).toEqual({ neutral: 'sand', text: 'ink', action: 'mint', accent: 'bronze' });
+    expect(hexes('sand')).toContain(light.colors.background);
+    expect(hexes('ink')).toContain(light.colors.text);
+    expect(hexes('mint')).toContain(light.colors.primary);
+    expect(hexes('bronze')).toContain(light.colors.accent);
+  });
+
+  it('fills the alert with the neutral, not a tint of the accent', () => {
+    expect(hexes('sand')).toContain(light.colors.accentSoft);
+    expect(hexes('sand')).toContain(dark.colors.accentSoft);
+    expect(hexes('bronze')).not.toContain(light.colors.accentSoft);
+  });
+
+  it('keeps the dark page, card, and border distinct', () => {
+    expect(new Set([dark.colors.background, dark.colors.surface, dark.colors.border]).size).toBe(3);
+  });
+});
