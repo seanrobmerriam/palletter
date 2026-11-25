@@ -127,3 +127,21 @@ describe('previewThemes with roles', () => {
     expect(new Set([dark.colors.background, dark.colors.surface, dark.colors.border]).size).toBe(3);
   });
 });
+
+describe('previewColors with an explicit accent and no action role', () => {
+  const steps = (hue: number, chroma: number) => ({ '100': `oklch(94% ${chroma / 4} ${hue})`, '500': `oklch(63% ${chroma} ${hue})`, '900': `oklch(37% ${chroma / 2} ${hue})` });
+  const palette: ModelPalette = {
+    scheme: 'suggested',
+    rationale: '',
+    colors: [
+      { name: 'coral', role: 'accent', steps: steps(35, 0.15) },
+      { name: 'aqua', role: 'secondary', steps: steps(200, 0.09) },
+      { name: 'sand', role: 'background', steps: steps(80, 0.012) },
+      { name: 'ink', role: 'text', steps: steps(255, 0.04) },
+    ],
+  };
+
+  it('keeps the explicit accent as the accent, and uses another color for buttons', () => {
+    expect(previewThemes(resolvePalette(palette, 'hex')).uses).toMatchObject({ accent: 'coral', action: 'aqua' });
+  });
+});

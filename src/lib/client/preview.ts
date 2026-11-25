@@ -41,9 +41,15 @@ export function previewColors(palette: ResolvedPalette): Record<keyof PreviewUse
   const neutral = withRole(BACKGROUND_ROLE) ?? colors[0]!;
   const text = withRole(TEXT_ROLE, [neutral]) ?? neutral;
   const special = [neutral, text].filter((c) => c.role && (BACKGROUND_ROLE.test(c.role) || TEXT_ROLE.test(c.role)));
-  const action = withRole(ACTION_ROLE, special) ?? colors.find((c) => !special.includes(c)) ?? colors[0]!;
+  // A color named as the accent stays the accent, so settle it before the buttons' fallback.
+  const namedAccent = withRole(ACCENT_ROLE, special);
+  const action =
+    withRole(ACTION_ROLE, special) ??
+    colors.find((c) => !special.includes(c) && c !== namedAccent) ??
+    namedAccent ??
+    colors[0]!;
   const accent =
-    withRole(ACCENT_ROLE, [...special, action]) ??
+    namedAccent ??
     withRole(SUPPORT_ROLE, [...special, action]) ??
     colors.find((c) => !special.includes(c) && c !== action) ??
     action;
