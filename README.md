@@ -190,6 +190,12 @@ Check your agent's documentation for its ACP command.
 
 With more than one agent set up, `PALLETTER_AGENT` (`claude`, `minimax`, or `custom`) picks the default, and each request can name its own.
 
+#### Choosing a model
+
+When the agent offers a choice of models over ACP, a **Model** picker appears next to the agent picker, listing exactly the models that agent offers. Claude Code lists the models your account can use, starting with **Default (recommended)**, which uses Claude Code's own default model. That depends on your account, and the picker shows which model it is.
+
+Palletter sends a model only when you pick something other than the default, so Claude Code's default stays in charge otherwise. MiniMax has no picker: it always uses `PALLETTER_MINIMAX_MODEL`.
+
 #### What the agent can do
 
 Palletter starts the agent the first time you create a palette and keeps it running until the server stops. Each palette request gets its own session, in an empty temporary folder.
@@ -214,12 +220,12 @@ The agent is given only the palette request and the Palletter skills:
 
 The UI uses two endpoints, which you can also call directly.
 
-`GET /api/agent` lists the agents and which one is the default. Add `?check=claude` (or another agent) to start it and check that it answers.
+`GET /api/agent` lists the agents and which one is the default. Add `?check=claude` (or another agent) to start it and check that it answers. If the agent offers a choice of models, the check also returns `models`: the one new sessions use (`current`) and every choice (`choices`, each with a `value` and `name`).
 
-`POST /api/palettes` takes a palette request as JSON, with an optional `agent`. It responds with [server-sent events](https://developer.mozilla.org/docs/Web/API/Server-sent_events), in this order:
+`POST /api/palettes` takes a palette request as JSON, with an optional `agent` and an optional `model` (a `value` from that agent's `choices`). It responds with [server-sent events](https://developer.mozilla.org/docs/Web/API/Server-sent_events), in this order:
 
 1. `status` events as the agent starts, thinks, and writes
-2. One `palette` event per scheme, with the converted colors, the formatted tokens, and the model's original oklch palette (`source`)
+2. One `palette` event per scheme, with the converted colors, the formatted tokens, the balanced oklch palette (`source`), the agent's own palette when balancing changed it (`original`), and what balancing changed (`notes`)
 3. `session`, with an id you can use to refine the palettes
 4. `done`, or `error` with a `code` and a message
 

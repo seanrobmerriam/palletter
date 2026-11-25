@@ -25,6 +25,31 @@ export type PromptOptions = {
   onProgress?: (progress: PromptProgress) => void;
 };
 
+/** A model the agent offers. `value` is what Palletter sends to choose it. */
+export type ModelChoice = { value: string; name: string; description?: string };
+
+/** The agent's model option: what a new session uses, and what else it offers. */
+export type ModelOptions = { current: string; choices: ModelChoice[] };
+
+/**
+ * Find the model option among a session's config options (ACP `configOptions`): the select
+ * option in the `model` category. Grouped choices are flattened.
+ */
+export function modelOptionFrom(configOptions: acp.SessionConfigOption[] | null | undefined): ModelOptions | undefined {
+  const option = configOptions?.find((o) => o.category === 'model' && o.type === 'select');
+  if (!option || option.type !== 'select') return undefined;
+  const choices = option.options.flatMap((entry) => ('group' in entry ? entry.options : [entry]));
+  return {
+    current: option.currentValue,
+    choices: choices.map((c) => ({ value: c.value, name: c.name, ...(c.description ? { description: c.description } : {}) })),
+  };
+}
+
+export type SessionOptions = {
+  /** A model from the agent's model option. Omit to use the agent's default. */
+  model?: string;
+};
+
 /** A conversation with the agent. Follow-up prompts (repairs) keep the context. */
 export type AgentSession = {
   prompt(text: string, options: PromptOptions): Promise<string>;
@@ -166,25 +191,80 @@ export class AgentProcess {
     });
   }
 
-  /** Open a new session. Each palette request gets its own. */
-  async newSession(): Promise<AgentSession> {
-    await this.start();
-    const connection = this.connection!;
-    const { profile } = this;
+  private modelCache?: Promise<ModelOptions | undefined>;
 
-    const session = await connection.agent
+  /**
+   * The models the agent offers, read from a throwaway session, or `undefined` if it has no model
+   * option. Cached for the life of the process.
+   */
+  models(): Promise<ModelOptions | undefined> {
+    this.modelCache ??= this.openSession()
+      .then((session) => {
+        const models = modelOptionFrom(session.newSessionResponse.configOptions);
+        this.closeSession(session);
+        return models;
+      })
+      .catch((error) => {
+        this.modelCache = undefined;
+        throw error;
+      });
+    return this.modelCache;
+  }
+
+  private async openSession(): Promise<acp.ActiveSession> {
+    await this.start();
+    const { profile } = this;
+    return this.connection!.agent
       .buildSession({ cwd: this.cwd, mcpServers: [], ...(profile.sessionMeta ? { _meta: profile.sessionMeta } : {}) })
       .start()
       .catch((error) => {
         throw toAgentError(this.exitError ?? error, profile, this.stderr);
       });
+  }
 
+  private closeSession(session: acp.ActiveSession) {
+    session.dispose();
+    this.connection?.agent.request(methods.agent.session.close, { sessionId: session.sessionId }).catch(() => {});
+  }
+
+  /** Switch a new session to `model`, checking that the agent offers it. */
+  private async chooseModel(session: acp.ActiveSession, model: string): Promise<void> {
+    const { profile } = this;
+    const options = modelOptionFrom(session.newSessionResponse.configOptions);
+    if (!options) {
+      throw new AgentError('model_unavailable', `${profile.label} doesn't let Palletter choose a model.`);
+    }
+    if (!options.choices.some((c) => c.value === model)) {
+      throw new AgentError(
+        'model_unavailable',
+        `${profile.label} doesn't offer the model "${model}".`,
+        `Available: ${options.choices.map((c) => c.value).join(', ')}`,
+      );
+    }
+    if (options.current === model) return;
+    await this.connection!.agent
+      .request(methods.agent.session.setConfigOption, { sessionId: session.sessionId, configId: 'model', value: model })
+      .catch((error) => {
+        const agentError = toAgentError(this.exitError ?? error, profile, this.stderr);
+        if (agentError.code !== 'agent_error') throw agentError;
+        throw new AgentError('model_unavailable', `${profile.label} couldn't switch to the model "${model}".`, agentError.detail);
+      });
+  }
+
+  /** Open a new session. Each palette request gets its own. */
+  async newSession(options: SessionOptions = {}): Promise<AgentSession> {
+    const session = await this.openSession();
+    if (options.model) {
+      try {
+        await this.chooseModel(session, options.model);
+      } catch (error) {
+        this.closeSession(session);
+        throw error;
+      }
+    }
     return {
       prompt: (text, options) => this.runPrompt(session, text, options),
-      close: () => {
-        session.dispose();
-        connection.agent.request(methods.agent.session.close, { sessionId: session.sessionId }).catch(() => {});
-      },
+      close: () => this.closeSession(session),
     };
   }
 

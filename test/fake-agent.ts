@@ -76,6 +76,22 @@ function palettesFor(
 const promptsPerSession = new Map<string, number>();
 let nextSession = 1;
 
+/** The fake agent's models, offered as an ACP `model` config option like Claude Code's adapter. */
+const FAKE_MODELS = [
+  { value: 'default', name: 'Default (recommended)', description: 'Fake Large' },
+  { value: 'fake-large', name: 'Fake Large', description: 'Slow and careful' },
+  { value: 'fake-small', name: 'Fake Small', description: 'Quick' },
+];
+const modelPerSession = new Map<string, string>();
+const modelOption = (current: string) => ({
+  id: 'model',
+  name: 'Model',
+  category: 'model' as const,
+  type: 'select' as const,
+  currentValue: current,
+  options: FAKE_MODELS,
+});
+
 const app = agent({ name: 'fake-agent' })
   .onRequest(methods.agent.initialize, () => ({
     protocolVersion: 1,
@@ -83,7 +99,14 @@ const app = agent({ name: 'fake-agent' })
     agentInfo: { name: 'fake-agent', version: '0.0.0' },
     authMethods: [],
   }))
-  .onRequest(methods.agent.session.new, () => ({ sessionId: `fake-${nextSession++}` }))
+  .onRequest(methods.agent.session.new, () => ({ sessionId: `fake-${nextSession++}`, configOptions: [modelOption('default')] }))
+  .onRequest(methods.agent.session.setConfigOption, ({ params }) => {
+    if (params.configId !== 'model' || !FAKE_MODELS.some((m) => m.value === params.value)) {
+      throw RequestError.invalidParams({ configId: params.configId }, 'Unknown config option or value.');
+    }
+    modelPerSession.set(params.sessionId, String(params.value));
+    return { configOptions: [modelOption(String(params.value))] };
+  })
   .onRequest(methods.agent.session.close, () => ({}))
   .onNotification(methods.agent.session.cancel, () => {})
   .onRequest(methods.agent.session.prompt, async ({ params, client, signal }) => {
@@ -120,7 +143,8 @@ const app = agent({ name: 'fake-agent' })
       return { stopReason: 'end_turn' as const };
     }
 
-    let rationale = 'A fake palette.';
+    const model = modelPerSession.get(params.sessionId);
+    let rationale = model && model !== 'default' ? `A fake palette from ${model}.` : 'A fake palette.';
     if (mode === 'permission') {
       const answer = await client.request(methods.client.session.requestPermission, {
         sessionId: params.sessionId,

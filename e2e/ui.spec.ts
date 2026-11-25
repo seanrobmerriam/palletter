@@ -43,8 +43,29 @@ test.describe('generator form', () => {
     const requestPromise = page.waitForRequest('/api/palettes');
     await create(page).click();
     expect((await requestPromise).postDataJSON()).toMatchObject({ balance: false });
-    await expect(page.getByRole('status').filter({ hasText: 'Created 1 palette.' })).toBeVisible();
+    await expect(page.getByRole('status').filter({ hasText: 'Created 1 palette with Fake Large.' })).toBeVisible();
     await expect(page.getByRole('button', { name: "Show the agent's original" })).toHaveCount(0);
+  });
+
+  test('picks a model from the ones the agent offers', async ({ page }) => {
+    await open(page);
+    const model = page.getByLabel('Model', { exact: true });
+    await expect(model).toContainText('Default (recommended)');
+
+    // The default isn't sent, so the agent keeps its own default.
+    let requestPromise = page.waitForRequest('/api/palettes');
+    await create(page).click();
+    expect((await requestPromise).postDataJSON()).not.toHaveProperty('model');
+    await expect(page.getByRole('status').filter({ hasText: 'Created 1 palette with Fake Large.' })).toBeVisible();
+
+    await page.getByLabel('Model', { exact: true }).click();
+    // Each option's name includes its description, e.g. "Fake Small Quick".
+    await page.getByRole('option', { name: /^Fake Small/ }).click();
+    requestPromise = page.waitForRequest('/api/palettes');
+    await create(page).click();
+    expect((await requestPromise).postDataJSON()).toMatchObject({ model: 'fake-small' });
+    await expect(page.getByRole('status').filter({ hasText: 'Created 1 palette with Fake Small.' })).toBeVisible();
+    await expect(page.getByText('A fake palette from fake-small.')).toBeVisible();
   });
 
   test('shows that the agent is ready', async ({ page }) => {
@@ -56,7 +77,7 @@ test.describe('generator form', () => {
   test('creates a palette from only the hue', async ({ page }) => {
     await open(page);
     await create(page).click();
-    await expect(page.getByRole('status').filter({ hasText: 'Created 1 palette.' })).toBeVisible();
+    await expect(page.getByRole('status').filter({ hasText: 'Created 1 palette with Fake Large.' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Monochromatic', exact: true })).toBeVisible();
     await expect(page.locator('.swatch')).toHaveCount(11);
     await expect(page.locator('pre code')).toContainText('--color-color-1-50: oklch(97% 0.012 255);');
@@ -100,7 +121,7 @@ test.describe('generator form', () => {
       agent: 'custom',
     });
 
-    await expect(page.getByText('Created 2 palettes.')).toBeVisible();
+    await expect(page.getByText('Created 2 palettes with Fake Large.')).toBeVisible();
     await expect(page.locator('pre code').first()).toContainText('@theme {');
     await expect(page.locator('pre code').first()).toContainText('--color-primary-color-50: #');
     await expect(page.getByText('primary', { exact: true }).first()).toBeVisible();
@@ -146,7 +167,7 @@ test.describe('generator form', () => {
     await open(page);
     await hue(page).focus();
     await page.keyboard.press('Enter');
-    await expect(page.getByText('Created 1 palette.')).toBeVisible();
+    await expect(page.getByText('Created 1 palette with Fake Large.')).toBeVisible();
   });
 
   test('can be cancelled', async ({ page }) => {
@@ -195,7 +216,7 @@ test.describe('generator form', () => {
   test('switches format and color system without asking the agent again', async ({ page }) => {
     await open(page);
     await create(page).click();
-    await expect(page.getByText('Created 1 palette.')).toBeVisible();
+    await expect(page.getByText('Created 1 palette with Fake Large.')).toBeVisible();
     let requests = 0;
     page.on('request', (r) => {
       if (r.url().includes('/api/')) requests++;
@@ -241,7 +262,7 @@ test.describe('generator form', () => {
     await section(page, 'Schemes').click();
     await page.getByLabel('Triadic').check();
     await create(page).click();
-    await expect(page.getByText('Created 2 palettes.')).toBeVisible();
+    await expect(page.getByText('Created 2 palettes with Fake Large.')).toBeVisible();
 
     const triadic = page.locator('article', { has: page.getByRole('heading', { name: 'Triadic', exact: true }) });
     await triadic.getByRole('button', { name: 'Refine…' }).click();
@@ -262,7 +283,7 @@ test.describe('generator form', () => {
     await open(page);
     await page.getByLabel('Mood').fill('calm');
     await create(page).click();
-    await expect(page.getByText('Created 1 palette.')).toBeVisible();
+    await expect(page.getByText('Created 1 palette with Fake Large.')).toBeVisible();
 
     await page.route('**/api/palettes/refine', (route) =>
       route.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ code: 'session_expired', error: 'Closed.' }) }),
@@ -278,7 +299,7 @@ test.describe('generator form', () => {
   test('ignores a refinement that finishes after a new generation started', async ({ page }) => {
     await open(page);
     await create(page).click();
-    await expect(page.getByText('Created 1 palette.')).toBeVisible();
+    await expect(page.getByText('Created 1 palette with Fake Large.')).toBeVisible();
 
     // Hold the refinement's response until the new generation has finished.
     let release: () => void = () => {};
@@ -291,7 +312,7 @@ test.describe('generator form', () => {
     });
     await page.getByRole('button', { name: 'Regenerate' }).click();
     await create(page).click();
-    await expect(page.getByText('Created 1 palette.')).toBeVisible();
+    await expect(page.getByText('Created 1 palette with Fake Large.')).toBeVisible();
     release();
     await page.waitForTimeout(300);
     await expect(page.getByText('A different take.')).toHaveCount(0);
@@ -302,7 +323,7 @@ test.describe('generator form', () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await open(page);
     await create(page).click();
-    await expect(page.getByText('Created 1 palette.')).toBeVisible();
+    await expect(page.getByText('Created 1 palette with Fake Large.')).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
   });
 });
