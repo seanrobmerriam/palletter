@@ -31,6 +31,7 @@ const SCHEME_HUES: Record<string, number[]> = {
   'neutral-accent': [0, 180],
   functional: [0, 0, 140, 80, 25, 230],
   sourced: [0, 40, 200],
+  suggested: [0],
 };
 
 type Mode = 'good' | 'bad-then-good' | 'bad' | 'no-json' | 'slow' | 'pause' | 'permission' | 'crash' | 'auth';
@@ -92,6 +93,42 @@ const modelOption = (current: string) => ({
   options: FAKE_MODELS,
 });
 
+/** How many directions each session has suggested, so follow-ups get new names. */
+const directionsPerSession = new Map<string, number>();
+
+/** The user's colors from a suggestion prompt: their oklch value, if the prompt gives one. */
+function suggestionColors(prompt: string): (string | undefined)[] {
+  const section = /## Your colors\n([\s\S]*?)\n## /.exec(prompt.slice(prompt.indexOf('# Suggestion request')))?.[1] ?? '';
+  return [...section.matchAll(/^\d+\. (.*)$/gm)].map((m) => /= (oklch\([^)]*\))/.exec(m[1]!)?.[1]);
+}
+
+/** A reply to a suggestion prompt: `count` directions, numbered on from `from`. */
+function directionsFor(first: string, count: number, from: number, { dropYours = false, summary = 'A fake direction.' } = {}) {
+  const colors = suggestionColors(first);
+  const base = /oklch\([\d.]+% [\d.]+ ([\d.]+)\)/.exec(colors.find(Boolean) ?? '')?.[1];
+  const hue = base ? Number(base) : 250;
+  return {
+    directions: Array.from({ length: count }, (_, i) => {
+      const n = from + i + 1;
+      const accent = (hue + 150 + 40 * n) % 360;
+      return {
+        name: `Direction ${n}`,
+        summary,
+        yours: colors.slice(0, dropYours ? -1 : undefined).map((value, j) => ({
+          name: `your color ${j + 1}`,
+          role: j === 0 ? 'primary' : 'secondary',
+          value: value ?? 'oklch(60% 0.1 200)',
+        })),
+        colors: [
+          { name: `sand ${n}`, role: 'background', value: `oklch(97% 0.012 ${hue})`, reason: 'A quiet background.' },
+          { name: `ink ${n}`, role: 'text', value: `oklch(25% 0.03 ${hue})`, reason: 'Dark text that reads on the background.' },
+          { name: `accent ${n}`, role: 'accent', value: `oklch(65% 0.15 ${accent})`, reason: 'A contrasting accent.' },
+        ],
+      };
+    }),
+  };
+}
+
 const app = agent({ name: 'fake-agent' })
   .onRequest(methods.agent.initialize, () => ({
     protocolVersion: 1,
@@ -152,6 +189,34 @@ const app = agent({ name: 'fake-agent' })
         options: [{ optionId: 'allow', name: 'Allow', kind: 'allow_once' }],
       });
       rationale = `Permission outcome: ${answer.outcome.outcome}.`;
+    }
+
+    // Suggestions: the first request, more directions, or more like one color.
+    if (first.includes('# Suggestion request')) {
+      const summary = model && model !== 'default' ? `A fake direction from ${model}.` : 'A fake direction.';
+      const like = /likes "([^"]+)" \(oklch\(([\d.]+)% ([\d.]+) ([\d.]+)\), used as "([^"]+)"\)/.exec(text);
+      let reply: unknown;
+      if (like) {
+        const [, name, l, c, h, role] = like;
+        reply = {
+          colors: [-8, 0, 8].map((dl, i) => ({
+            name: `${name} ${i + 1}`,
+            role,
+            value: `oklch(${Number(l) + dl}% ${c} ${(Number(h) + 10 * (i + 1)) % 360})`,
+            reason: 'A close variation.',
+          })),
+        };
+      } else {
+        const more = /Suggest (\d+) more direction/.exec(text);
+        // A repair prompt doesn't repeat the count, so fall back to the first prompt's.
+        const count = Number(more?.[1] ?? /Make exactly (\d+) direction/.exec(text)?.[1] ?? /Make exactly (\d+) direction/.exec(first)?.[1] ?? 1);
+        const from = directionsPerSession.get(params.sessionId) ?? 0;
+        const dropYours = mode === 'bad' || (mode === 'bad-then-good' && turn === 1);
+        reply = directionsFor(first, count, from, { dropYours, summary });
+        if (!dropYours) directionsPerSession.set(params.sessionId, from + count);
+      }
+      await say(`\`\`\`json\n${JSON.stringify(reply, null, 2)}\n\`\`\``);
+      return { stopReason: 'end_turn' as const };
     }
 
     // A refine or regenerate prompt asks for one scheme again.

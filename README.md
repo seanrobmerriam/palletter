@@ -2,9 +2,9 @@
 
 <img src="docs/images/built-with-claude.png" alt="Built with Claude" height="40">
 
-Palletter is a web application for generating color palettes for use on the web. Choose a base color, the relationship you want the colors to have, and any other rules or constraints you want on the palette. Palletter will give you a set of tokens along with their color values that you can copy and paste into your CSS.
+Palletter is a web application for building color palettes for the web. Enter colors you like, and your agent suggests colors you didn't pick that work with them, in a few different directions, and says why each one works. Keep the ones you like, and Palletter builds your palette: a scale for each color, contrast checks, and tokens you can paste into your CSS.
 
-> **Status:** in development. The generator works end to end: fill in the form, and your agent creates palettes you can copy. Saving and sharing palettes is next. See [PLAN.md](./PLAN.md) for the plan and milestones.
+> **Status:** in development. Suggesting, curating, and building palettes works end to end. Saving and sharing palettes is next. See [PLAN.md](./PLAN.md) for the plan and milestones.
 
 ![Palletter with three hues (mint, aqua, and bronze) and the mood "Tropical, calm, but vivid." The Palettes panel shows a monochromatic palette with a full 50–950 scale for each color, the agent's rationale, a note on what balancing changed, and a contrast badge on every swatch.](docs/images/palettes.png)
 
@@ -12,40 +12,45 @@ Palletter is a web application for generating color palettes for use on the web.
 
 ## How it works
 
-Palletter turns your input into a prompt and sends it over the [Agent Client Protocol (ACP)](https://agentclientprotocol.com) to your connected model. The model chooses the colors by following the Palletter skills and its own training, and returns them as data. Palletter turns them into tokens.
+The agent does what only an agent can: it looks at your colors and has taste. Palletter does everything that can be calculated.
 
-Palletter doesn't take the model's output on faith. Before you see a palette, Palletter:
-
-1. **Validates** the response against a strict schema. If the response is malformed, it asks the model to fix it.
-2. **Balances** the palette (see [Balance](#balance)), so one color leads and each scale shifts hue naturally from light to dark.
-3. **Converts** each color into the color system you picked, so the values are exact and consistent instead of approximated by the model.
-4. **Checks** contrast between the colors in the palette and flags pairs that won't meet WCAG AA for text.
-5. **Formats** the tokens in your chosen format, ready to paste.
+1. **The agent suggests.** Palletter sends your colors, what they're for, and any hints to your agent over the [Agent Client Protocol (ACP)](https://agentclientprotocol.com). Following the Palletter suggestion skill ([`skills/palletter/suggest.md`](./skills/palletter/suggest.md)), the agent comes back with a few **directions**: each a different idea for completing your palette, with 3 to 5 new colors, a role for each (background, text, call to action…), and a sentence on why it works with yours.
+2. **Palletter checks the suggestions.** It validates the reply against a strict schema and asks the agent to fix it once if needed, keeps your exact colors exactly, and drops any suggestion that's barely different from a color you already have.
+3. **You curate.** Keep the colors you like, from any direction. **More like this** asks for variations on one color, and **More directions** asks for new ideas. Both continue the same agent session, so the agent knows what it already suggested.
+4. **Palletter builds the palette, in your browser.** No agent is involved, so it's instant and updates as you keep colors. Each color gets a 50–950 scale with the color itself, unchanged, at its nearest step. Palletter then adds a gentle hue shift along each scale (see [Balance](#balance)), converts the colors into your color system, checks contrast, and formats the tokens.
 
 ```
-┌──────────┐  palette request  ┌──────────────────┐   prompt + skills   ┌──────────────┐
+┌──────────┐  your colors      ┌──────────────────┐   prompt + skills   ┌──────────────┐
 │ Browser  │ ────────────────► │ Palletter server │ ──────── ACP ─────► │  Your agent  │
 │   (UI)   │ ◄──── stream ──── │  (Astro / Bun)   │ ◄──── response ──── │   / model    │
-└──────────┘  tokens + preview └──────────────────┘                     └──────────────┘
-                                validate · convert · contrast · format
+└──────────┘  suggestions      └──────────────────┘                     └──────────────┘
+     │                          validate · repair
+     └── keep colors → scales · balance · convert · contrast · tokens (in the browser)
 ```
 
 Because ACP agents run as local processes, Palletter runs on your machine and uses the agent you already have installed and signed in. Palletter doesn't store API keys. Claude Code uses its own login. A MiniMax key stays in your local `.env`, and Palletter passes it only to the agent process it starts.
 
 ## Workflow
 
-The basic workflow can be as objective or subjective as you want. Your model will do all the heavy lifting. All but step 1 are optional, though you will get better results with more information provided.
+1. **Colors you like.** Enter one or more: a color value, the picker, or a name (`"terracotta"`).
+2. **What's it for?** Optional, but it helps: the product, the mood, or both, e.g. "a bakery website, warm and a little playful".
+3. Press **Suggest colors**. The agent suggests 2 directions by default.
+4. **Keep** the suggestions you like, from any direction, or **Keep all** of a direction. Use **More like this** on a color that's close but not quite right, and **More directions** for new ideas.
+5. **Your palette** builds below as you keep colors: your colors and the ones you kept, as scales, with a preview, a contrast matrix, and tokens to copy or download.
 
-1. **Hues.** Choose a single hue or a set of hues you want included in your palette. You can enter a color value, use the picker, or name a color (`"terracotta"`). You can also add a mood or feeling you want the palette to convey (`"calm, trustworthy, a little playful"`).
-2. **Token format.** Choose the type of tokens you want, e.g. Tailwind CSS, or plain custom properties such as `--brand-[color]` or `--color-[mood]`.
-3. **Scale.** Choose between a full value set (e.g. `--color-50` to `--color-950`), or a specific range of values (e.g. `--color-100` to `--color-300`).
-4. **Saturation.** Choose saturation, e.g. vivid, muted, pure, pastel, or earthy.
-5. **Color system.** Choose a color system, e.g. oklch, hex, rgb, hsl, or cmyk.
-6. **Relationships.** Choose the roles you need, e.g. primary, secondary, and tertiary, and the temperature you want for each (warm, cool, or neutral).
-7. **Schemes.** Finally, choose the schemes you need. This decides the actual outputs you get, e.g. monochromatic, analogous, complementary, split-complementary, triadic, or tetradic.
-8. Hit **Create**.
+Everything else is under **Advanced options**, and all of it is optional:
 
-Each scheme you select produces its own palette, so you can compare them side by side and copy the one you like.
+| Option | What it does |
+| ------ | ------------ |
+| **Directions** | How many directions to suggest at a time (1–5). |
+| **Saturation** | A hint for the agent, e.g. vivid, muted, pure, pastel, or earthy. Also has the **Balance the palette** switch. |
+| **Roles** | Jobs you need colors for, e.g. "background" or "call to action", each with an optional temperature. A hint for the agent. |
+| **Relationships** | Color-wheel relationships for the agent to lean on (see [Palette Types](#palette-types)). A hint, not a rule. |
+| **Scale** | The steps each color gets: the full 50–950 set, a range, or a number of steps. |
+| **Token format** | CSS custom properties (with a naming pattern such as `--brand-[color]-[step]`), Tailwind CSS v4, or Design Tokens JSON. |
+| **Color system** | oklch, hex, rgb, hsl, or cmyk. |
+
+Scale, token format, and color system only affect how the palette is built and exported, so changing them never asks the agent again.
 
 ## Color Systems
 
@@ -63,7 +68,7 @@ When a color from the model is outside the sRGB gamut and you choose an sRGB-bas
 
 ## Palette Types
 
-A palette type (or scheme) describes how the hues in the palette relate to each other on the color wheel. Pick one or more.
+A palette type (or scheme) describes how the hues in a palette relate to each other on the color wheel. In the app, they're optional hints under **Advanced options → Relationships**: the agent leans on the ones you pick when it suggests colors. The [palette API](#api) still makes one palette per scheme.
 
 | Scheme | Hues | What it's good for |
 | ------ | ---- | ------------------ |
@@ -87,7 +92,7 @@ The angles are a starting point. The Palletter skills tell the model to adjust h
 
 ## Balance
 
-A palette where every color is equally saturated looks harsh, whatever the scheme. Real designs give each color a job, so Palletter has the model give every color a role, and then balances the palette itself:
+When Palletter builds your palette from the colors you chose, every one of them is exact, so balancing never changes them. It only adds **hue drift** to the steps around each color, so the scales look natural rather than computed. The full set of rules below applies to palettes from the [palette API](#api), where the agent makes whole palettes:
 
 - **Chroma hierarchy.** The primary color leads at full chroma. Supporting colors (secondary, tertiary, and other roles) peak at no more than 70% of the primary's chroma. Accents stay bright, because they're used in small doses, and neutrals stay quiet.
 - **Hue drift.** Each scale shifts hue slightly from light to dark, as real pigments do. Dark steps move toward blue-violet (yellows and ambers move toward orange and brown instead), and light steps move a little the other way, up to about 7° and 5°.
@@ -96,7 +101,7 @@ A palette where every color is equally saturated looks harsh, whatever the schem
 
 Your exact colors are never changed, and a color that contains one isn't capped, pulled, or moved.
 
-Each balanced palette says what Palletter changed, and **Show the agent's original** switches the swatches and tokens to the palette exactly as the agent made it, so you can compare and copy either one. To skip balancing altogether, turn off **Balance the palette** under Saturation. With **Pure** saturation, supporting colors aren't capped either. Colors that fit in sRGB still fit after balancing.
+Each balanced palette says what Palletter changed, and **Show before balancing** switches the swatches and tokens to the palette before balancing, so you can compare and copy either one. To skip balancing altogether, turn off **Balance the palette** under Saturation. With **Pure** saturation, supporting colors aren't capped either. Colors that fit in sRGB still fit after balancing.
 
 ## Saturation
 
@@ -224,11 +229,20 @@ The agent is given only the palette request and the Palletter skills:
 
 ### API
 
-The UI uses two endpoints, which you can also call directly.
+The UI uses three endpoints, which you can also call directly. All of them stream [server-sent events](https://developer.mozilla.org/docs/Web/API/Server-sent_events) except `GET /api/agent`.
 
 `GET /api/agent` lists the agents and which one is the default. Add `?check=claude` (or another agent) to start it and check that it answers. If the agent offers a choice of models, the check also returns `models`: the one new sessions use (`current`) and every choice (`choices`, each with a `value` and `name`).
 
-`POST /api/palettes` takes a palette request as JSON, with an optional `agent` and an optional `model` (a `value` from that agent's `choices`). It responds with [server-sent events](https://developer.mozilla.org/docs/Web/API/Server-sent_events), in this order:
+`POST /api/suggest` takes `{ "hues", "purpose", "directions", "saturation", "roles", "schemes" }` (only `hues` is required; `directions` defaults to 2), with an optional `agent` and `model`. It streams `status` events, one `direction` event per direction (`{ name, summary, yours, colors }`, where `yours` names your colors and gives each a role, and each of `colors` has a `name`, `role`, oklch `value`, and `reason`), then `session` with an id for follow-ups, then `done` or `error`.
+
+`POST /api/suggest/more` continues that session. `{ "sessionId", "kind": "directions", "count" }` streams `count` more `direction` events. `{ "sessionId", "kind": "like", "color": { "name", "role", "value" }, "direction" }` streams one `alternatives` event with colors like `color`. A closed session returns 404 with `code: "session_expired"`.
+
+```bash
+curl -N localhost:4321/api/suggest -H 'content-type: application/json' \
+  -d '{"hues":[{"value":"#84f5a6"},{"value":"#bf8645"}],"purpose":"a bakery website"}'
+```
+
+The palette API makes whole palettes with the agent, one per scheme. The app doesn't use it any more, but it still works. `POST /api/palettes` takes a palette request as JSON, with an optional `agent` and an optional `model` (a `value` from that agent's `choices`). It responds in this order:
 
 1. `status` events as the agent starts, thinks, and writes
 2. One `palette` event per scheme, with the converted colors, the formatted tokens, the balanced oklch palette (`source`), the agent's own palette when balancing changed it (`original`), and what balancing changed (`notes`)
@@ -303,8 +317,9 @@ Icons are bundled rather than fetched from the Iconify API, so the app works off
 │   │   ├── acp/         ACP client and agent process management
 │   │   ├── color/       Conversion, gamut mapping, and contrast
 │   │   ├── format/      Token formatters (CSS, Tailwind, JSON) and naming
-│   │   ├── palette/     Turns a model palette into values, flags, and contrast
-│   │   └── prompt/      Prompt builder and response schema
+│   │   ├── palette/     Scales, balancing, and resolving palettes into values and contrast
+│   │   ├── prompt/      Palette prompt builder and response schema
+│   │   └── suggest/     Suggestion schema, prompts, parser, and flow
 │   ├── pages/
 │   │   ├── api/         Server endpoints
 │   │   └── index.astro  The generator

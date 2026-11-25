@@ -1,10 +1,12 @@
 /**
- * The generator form's state, and how it becomes a PaletteRequest.
+ * The generator form's state, and how it becomes a SuggestRequest (for the agent) and the
+ * settings for building and exporting the palette (in the browser).
  * Kept separate from the Svelte component so it can be unit tested.
  */
 import { formatHex, parse } from 'culori';
 import type { z } from 'zod';
-import { STEPS, DEFAULT_NAMING_PATTERN, PaletteRequestSchema, resolveSteps } from '../prompt/schema';
+import { STEPS, DEFAULT_NAMING_PATTERN, PaletteRequestSchema, resolveSteps, type Saturation, type Scale } from '../prompt/schema';
+import { DEFAULT_DIRECTIONS, SuggestRequestSchema, type SuggestRequestInput } from '../suggest/schema';
 import type { ColorSystem, PaletteRequestInput, Scheme, Step, TokenFormat } from '../prompt/schema';
 
 export type HueRow = { text: string; picker: string };
@@ -24,6 +26,8 @@ export type FormState = {
   customSaturation: string;
   /** Let Palletter balance the palette. */
   balance: boolean;
+  /** How many directions to ask the agent for at a time. */
+  directions: number;
   colorSystem: ColorSystem;
   roles: RoleRow[];
   schemes: Scheme[];
@@ -42,9 +46,10 @@ export function initialFormState(): FormState {
     saturation: '',
     customSaturation: '',
     balance: true,
+    directions: DEFAULT_DIRECTIONS,
     colorSystem: 'oklch',
     roles: [],
-    schemes: ['monochromatic'],
+    schemes: [],
   };
 }
 
@@ -87,6 +92,75 @@ export function toRequestInput(state: FormState): PaletteRequestInput {
     input.roles = roles.map((r) => ({ role: r.role.trim(), ...(r.temperature ? { temperature: r.temperature } : {}) }));
   }
   return input;
+}
+
+function scaleOf(state: FormState): Scale {
+  return state.scaleKind === 'full'
+    ? { kind: 'full' }
+    : state.scaleKind === 'range'
+      ? { kind: 'range', from: state.from, to: state.to }
+      : { kind: 'count', count: state.count };
+}
+
+function saturationOf(state: FormState): Saturation | undefined {
+  if (state.saturation === 'custom') return { custom: state.customSaturation.trim() };
+  return state.saturation || undefined;
+}
+
+/** What the agent needs to suggest colors: the colors, what they're for, and any hints. */
+export function toSuggestInput(state: FormState): SuggestRequestInput {
+  const input: SuggestRequestInput = { hues: state.hues.map(hueToInput), directions: state.directions };
+  if (state.mood.trim()) input.purpose = state.mood.trim();
+  const saturation = saturationOf(state);
+  if (saturation) input.saturation = saturation;
+  const roles = state.roles.filter((r) => r.role.trim());
+  if (roles.length) {
+    input.roles = roles.map((r) => ({ role: r.role.trim(), ...(r.temperature ? { temperature: r.temperature } : {}) }));
+  }
+  const schemes = state.schemes.filter((s) => s !== 'suggested');
+  if (schemes.length) input.schemes = schemes;
+  return input;
+}
+
+/** How a palette is built and exported from the chosen colors. */
+export type BuildSettings = {
+  scale: Scale;
+  balance: boolean;
+  saturation?: Saturation;
+  tokenFormat: TokenFormat;
+  namingPattern: string;
+  colorSystem: ColorSystem;
+};
+
+export function toBuildSettings(state: FormState): BuildSettings {
+  const saturation = saturationOf(state);
+  return {
+    scale: scaleOf(state),
+    balance: state.balance,
+    ...(saturation ? { saturation } : {}),
+    tokenFormat: state.tokenFormat,
+    namingPattern: state.tokenFormat === 'css' ? state.namingPattern.trim() : DEFAULT_NAMING_PATTERN,
+    colorSystem: state.colorSystem,
+  };
+}
+
+/**
+ * Check the whole form: the suggestion request, and the build and export settings (naming
+ * pattern, scale). Errors are keyed by the form's field paths, with `mood` for the purpose.
+ */
+export function validateSuggest(state: FormState): { ok: true; input: SuggestRequestInput } | { ok: false; errors: FieldErrors } {
+  const input = toSuggestInput(state);
+  const errors: FieldErrors = {};
+  const suggest = SuggestRequestSchema.safeParse(input);
+  if (!suggest.success) {
+    for (const [key, message] of Object.entries(issuesToErrors(suggest.error.issues))) errors[key === 'purpose' ? 'mood' : key] ??= message;
+  }
+  // The export settings are checked with the palette request, which knows the naming and scale rules.
+  const exportCheck = PaletteRequestSchema.safeParse({ ...toRequestInput(state), schemes: ['suggested'] });
+  if (!exportCheck.success) {
+    for (const [key, message] of Object.entries(issuesToErrors(exportCheck.error.issues))) errors[key] ??= message;
+  }
+  return Object.keys(errors).length ? { ok: false, errors } : { ok: true, input };
 }
 
 /** Validation problems keyed by field path, e.g. `hues.0.value` or `scale.to`. */
@@ -134,6 +208,7 @@ export const SCHEME_LABELS: Record<Scheme, string> = {
   'neutral-accent': 'Neutral + accent',
   functional: 'Functional UI',
   sourced: 'Sourced',
+  suggested: 'Scales and tokens',
 };
 
 /** One line under each scheme in the form. */
@@ -148,9 +223,10 @@ export const SCHEME_DESCRIPTIONS: Record<Scheme, string> = {
   'neutral-accent': 'One brand color, tinted greys, and an optional accent.',
   functional: 'Brand, neutral, and success, warning, danger, and info colors.',
   sourced: 'Drawn from a real scene, material, or style.',
+  suggested: 'Your colors and the suggestions you kept.',
 };
 
-export function summaries(state: FormState): Record<'format' | 'scale' | 'saturation' | 'system' | 'roles' | 'schemes', string> {
+export function summaries(state: FormState): Record<'directions' | 'format' | 'scale' | 'saturation' | 'system' | 'roles' | 'schemes', string> {
   const steps = (() => {
     try {
       const scale =
@@ -167,6 +243,7 @@ export function summaries(state: FormState): Record<'format' | 'scale' | 'satura
   })();
   const roles = state.roles.filter((r) => r.role.trim());
   return {
+    directions: `${state.directions} at a time`,
     format: state.tokenFormat === 'css' ? `${FORMAT_LABELS.css}, ${state.namingPattern}` : FORMAT_LABELS[state.tokenFormat],
     scale: state.scaleKind === 'full' ? `Full scale, ${steps}` : steps,
     saturation:
@@ -179,7 +256,7 @@ export function summaries(state: FormState): Record<'format' | 'scale' | 'satura
     roles: roles.length
       ? roles.map((r) => (r.temperature ? `${r.role.trim()} (${r.temperature})` : r.role.trim())).join(', ')
       : 'Let the agent decide',
-    schemes: state.schemes.length ? state.schemes.map((s) => SCHEME_LABELS[s]).join(', ') : 'None chosen',
+    schemes: state.schemes.length ? state.schemes.map((s) => SCHEME_LABELS[s]).join(', ') : 'Let the agent decide',
   };
 }
 

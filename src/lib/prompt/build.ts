@@ -45,6 +45,7 @@ function describeHue(hue: PaletteRequest['hues'][number]): string {
 
 /** What each character scheme asks for. See color-theory.md, "Schemes defined by character". */
 const CHARACTER_DESCRIPTIONS: Record<CharacterScheme, string> = {
+  suggested: 'every hue above as its own color, in order, with the first as a primary',
   'neutral-accent': 'a primary, a neutral tinted with it, and at most one accent at any hue that suits the mood',
   functional: `a primary, a neutral, and the semantic colors ${SEMANTIC_ROLES.join(', ')}, tuned to the primary`,
   sourced: 'colors drawn from a real scene, material, or style that fits the hues and mood; say in the rationale what it was drawn from',

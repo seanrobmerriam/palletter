@@ -316,3 +316,21 @@ describe('notes', () => {
     expect(harmonizeWithNotes(palette(grey), request()).notes).toEqual([]);
   });
 });
+
+describe('exact colors in several scales', () => {
+  it('fixes the step that matches an exact color best, not a pale step near another one', () => {
+    // Coral's pale 50 step is within rounding of the sand background, which is also exact.
+    const coral: ModelColor = {
+      name: 'coral',
+      role: 'accent',
+      steps: { '50': 'oklch(97% 0.016 35)', '400': 'oklch(68% 0.15 35)', '900': 'oklch(37% 0.09 35)' },
+    };
+    const sand: ModelColor = { name: 'sand', role: 'background', steps: { '50': 'oklch(96.8% 0.014 80.2)', '400': 'oklch(70% 0.06 80)' } };
+    const result = harmonizePalette(
+      palette(scale('brand', 255, 0.15, 'primary'), coral, sand),
+      request({ hues: [{ name: 'blue' }, { value: 'oklch(68% 0.15 35)' }, { value: 'oklch(96.8% 0.014 80.2)' }] }),
+    );
+    expect(result.colors[1]!.steps['400']).toBe('oklch(68% 0.15 35)');
+    expect(result.colors[2]!.steps['50']).toBe('oklch(96.8% 0.014 80.2)');
+  });
+});

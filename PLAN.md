@@ -241,6 +241,17 @@ Palettes built only from color-wheel angles, with every color at the same chroma
 
 **Done when:** a triadic or tetradic palette from a real agent looks usable in a product UI without hand-editing, and the new schemes are available in the form.
 
+**Step 5: the agent suggests, you curate ✅**
+
+The app was doing what code could do alone. The agent's real value is taste: suggesting colors the user didn't pick, and saying why they work. The app is now built around that.
+
+- [x] `skills/palletter/suggest.md`: how to suggest. Directions are different ideas, each with 3–5 new colors that do jobs the user's colors don't (background, text, accent…), values as they'd be used, and a specific reason per color.
+- [x] `src/lib/suggest/`: request and response schemas, prompts (first request, more directions, more like this), a parser that keeps exact colors exact and drops near-duplicates of the user's colors, and the flow with one repair attempt. `POST /api/suggest` and `POST /api/suggest/more`, with sessions kept for follow-ups.
+- [x] `src/lib/palette/scale.ts` and `chosen.ts`: build the palette in the browser from the user's colors plus the kept suggestions. Each color gets a scale with itself unchanged at its nearest step; quiet colors stay quiet. Every chosen color is exact, so balancing only adds hue drift. Fixed balancing so a pale step near another exact color isn't mistaken for it.
+- [x] UI: colors and "What's it for?" up front, then **Suggest colors** (2 directions by default). Direction cards with **Keep**, **Keep all**, and **More like this** (alternatives appear under the color they vary); **More directions** (starts a new session if the old one closed). **Your palette** builds live from the kept colors. Directions, saturation, roles, relationships, scale, token format, and color system are under **Advanced options**; the first four are hints for the agent.
+- [ ] Review with a real agent: are the directions really different, are the reasons specific, and do the suggested backgrounds and text colors pass contrast? Tune `suggest.md` from what comes back.
+- [ ] Replace the README screenshots with the new flow.
+
 ### Phase 7: Persistence and sharing
 
 - [ ] Save the form state to the URL so a set of inputs can be shared or bookmarked.

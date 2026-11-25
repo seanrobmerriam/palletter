@@ -19,18 +19,19 @@
     format: TokenFormat;
     system: ColorSystem;
     namingPattern: string;
-    busy: boolean;
-    status: string;
+    busy?: boolean;
+    status?: string;
     error?: { message: string; detail?: string };
-    onRegenerate: () => void;
-    onRefine: (note: string) => void;
-    onCancel: () => void;
+    /** Agent actions. Without them, the card shows no Regenerate or Refine buttons. */
+    onRegenerate?: () => void;
+    onRefine?: (note: string) => void;
+    onCancel?: () => void;
   };
 
-  let { source, original, notes = [], format, system, namingPattern, busy, status, error, onRegenerate, onRefine, onCancel }: Props = $props();
+  let { source, original, notes = [], format, system, namingPattern, busy = false, status = '', error, onRegenerate, onRefine, onCancel }: Props = $props();
 
   const id = $props.id();
-  /** Show the agent's original instead of the balanced palette. Resets when the palette changes. */
+  /** Show the palette before balancing instead of the balanced one. Resets when the palette changes. */
   let showOriginal = $state(false);
   $effect(() => {
     void source;
@@ -92,7 +93,7 @@
   function submitRefine(event: SubmitEvent) {
     event.preventDefault();
     if (!note.trim()) return;
-    onRefine(note.trim());
+    onRefine?.(note.trim());
     refining = false;
     note = '';
   }
@@ -106,7 +107,7 @@
       <div class="flex gap-2">
         {#if busy}
           <Button label="Cancel" onclick={onCancel} />
-        {:else}
+        {:else if onRegenerate && onRefine}
           <Button label="Regenerate" leadingIcon="lucide:refresh-cw" onclick={onRegenerate} />
           <Button
             label="Refine…"
@@ -152,14 +153,14 @@
       <div class="balance flex flex-col items-start gap-2 text-sm text-on-surface-variant sm:flex-row sm:items-center sm:gap-3">
         <p class="min-w-0 sm:flex-1" aria-live="polite">
           {#if showOriginal}
-            Showing the agent's original palette, before Palletter balanced it.
+            Showing the palette before Palletter balanced it.
           {:else}
             <span class="font-medium text-on-surface">Balanced.</span>
             {notes.length ? notes.join(' ') : 'Palletter made small adjustments.'}
           {/if}
         </p>
         <Button
-          label={showOriginal ? 'Show balanced' : "Show the agent's original"}
+          label={showOriginal ? 'Show balanced' : 'Show before balancing'}
           aria-pressed={showOriginal}
           onclick={() => (showOriginal = !showOriginal)}
         />

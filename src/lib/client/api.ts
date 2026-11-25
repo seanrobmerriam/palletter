@@ -10,11 +10,11 @@ export type StreamResult =
  * POST JSON to an event-stream endpoint and hand each event to `onEvent`. Resolves when the
  * stream ends. A non-2xx response resolves with its error instead of streaming.
  */
-export async function postForEvents(
+export async function postForEvents<E = GenerateEvent>(
   url: string,
   body: unknown,
   signal: AbortSignal,
-  onEvent: (event: GenerateEvent) => void,
+  onEvent: (event: E) => void,
 ): Promise<StreamResult> {
   const response = await fetch(url, {
     method: 'POST',
@@ -36,6 +36,6 @@ export async function postForEvents(
       detail: error.issues?.map((i) => `${i.path}: ${i.message}`).join('\n'),
     };
   }
-  for await (const message of readEvents(response.body)) onEvent(JSON.parse(message.data) as GenerateEvent);
+  for await (const message of readEvents(response.body)) onEvent(JSON.parse(message.data) as E);
   return { ok: true };
 }
