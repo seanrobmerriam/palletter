@@ -20,7 +20,7 @@ describe('PaletteRequestSchema', () => {
       scale: { kind: 'full' },
       colorSystem: 'oklch',
       balance: true,
-      schemes: ['monochromatic'],
+      schemes: ['from-my-colors'],
     });
   });
 

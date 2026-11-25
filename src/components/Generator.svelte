@@ -217,6 +217,17 @@
     tick().then(() => document.getElementById(`${id}-role-${form.roles.length - 1}`)?.focus());
   }
 
+  /** Several hues with Monochromatic chosen: the palette can only follow one of them. */
+  const monochromaticWithManyHues = $derived(
+    form.schemes.includes('monochromatic') && form.hues.filter((h) => h.text.trim()).length > 1,
+  );
+
+  /** Swap Monochromatic for From my colors, keeping the other schemes. */
+  function useFromMyColors() {
+    const others = form.schemes.filter((s) => s !== 'monochromatic' && s !== 'from-my-colors');
+    form.schemes = ['from-my-colors', ...others];
+  }
+
   function useStandardRoles() {
     form.roles = [
       { role: 'primary', temperature: '' },
@@ -489,6 +500,14 @@
         <div>
           <Button label="Add a hue" leadingIcon="lucide:plus" onclick={addHue} disabled={form.hues.length >= 8} />
         </div>
+        {#if monochromaticWithManyHues}
+          <div class="monochromatic-hint flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-on-surface-variant" role="note">
+            <p class="min-w-0 flex-1">
+              Monochromatic uses only one hue, so your other colors won't fit it. From my colors keeps all of them.
+            </p>
+            <Button label="Use From my colors" onclick={useFromMyColors} />
+          </div>
+        {/if}
 
         <FormField label="Mood" hint="Optional" error={errors.mood} ariaId="{id}-mood">
           <Input bind:value={form.mood} placeholder="e.g. calm, trustworthy, a little playful" />

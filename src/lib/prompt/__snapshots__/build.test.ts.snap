@@ -17,7 +17,7 @@ Skill body.
 
 Make one palette for each of these schemes, in this order. The base hue is 262.9°, from the first hue.
 
-- monochromatic: hue 262.9°.
+- from-my-colors: every hue above as its own color, in the order given (the first leads), plus a neutral tinted with the first, plus one supporting color or accent if there are fewer than three hues (see color-theory.md).
 
 ## Steps
 

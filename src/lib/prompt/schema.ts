@@ -57,6 +57,7 @@ export function resolveSteps(scale: Scale): Step[] {
 // ── Enumerations ───────────────────────────────────────────────────────────
 
 export const SCHEMES = [
+  'from-my-colors',
   'monochromatic',
   'analogous',
   'complementary',
@@ -75,7 +76,7 @@ export type Scheme = z.infer<typeof SchemeSchema>;
  * Schemes defined by what each color does rather than by angles on the color wheel. Palletter
  * doesn't check their hues against reference angles.
  */
-export const CHARACTER_SCHEMES = ['neutral-accent', 'functional', 'sourced'] as const satisfies readonly Scheme[];
+export const CHARACTER_SCHEMES = ['from-my-colors', 'neutral-accent', 'functional', 'sourced'] as const satisfies readonly Scheme[];
 export type CharacterScheme = (typeof CHARACTER_SCHEMES)[number];
 export const isCharacterScheme = (scheme: Scheme): scheme is CharacterScheme =>
   (CHARACTER_SCHEMES as readonly Scheme[]).includes(scheme);
@@ -154,7 +155,7 @@ export const PaletteRequestSchema = z.object({
     .array(SchemeSchema)
     .min(1, 'Choose at least one scheme')
     .refine((s) => new Set(s).size === s.length, 'Each scheme can only be chosen once')
-    .default(['monochromatic']),
+    .default(['from-my-colors']),
 });
 
 /** A validated request, with defaults filled in. */

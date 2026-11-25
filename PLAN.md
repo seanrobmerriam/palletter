@@ -231,6 +231,7 @@ Palettes built only from color-wheel angles, with every color at the same chroma
   - [x] **Functional UI:** a primary, a neutral, and `success`, `warning`, `danger`, and `info` colors in fixed hue ranges, tuned to the primary. The parser asks for a repair if a semantic role is missing, and a palette may now have up to 12 colors (6 roles plus the neutral and 4 semantic colors). `harmonize.ts` classifies status roles as semantic and leaves their hue and chroma alone, apart from the hue drift.
   - [x] **Sourced:** 3 to 5 colors drawn from a scene, material, or style the user names or the mood suggests, with the source named in the rationale.
 - [x] Neutral + accent, functional, and sourced are character schemes (`CHARACTER_SCHEMES`): they have no reference angles, so the scheme check never flags them.
+- [x] **From my colors** (the default scheme): every hue the user gave, in order with the first leading, plus a tinted neutral, plus one supporting color when there are fewer than three hues. For the most common use: "here are colors I like, make them a website palette". When several hues are entered with Monochromatic chosen, the Hues section says why that won't work and offers a one-click switch.
 
 **Step 4: control and transparency**
 

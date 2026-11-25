@@ -36,6 +36,15 @@ Each scheme places its hues around a base hue. The base hue is the user's first 
 
 These schemes describe what each color does, not where it sits on the wheel. Palletter doesn't check their hues against reference angles, but the balance rules below still apply.
 
+### From my colors
+
+The user has colors they like and wants a palette to use them in, such as for a website. Their colors are the palette; your job is to make them work together and fill the gaps.
+
+- Make one color for each hue the user gave, in their order. The first is the `primary`; the others are `secondary`, `tertiary`, or `accent`, whichever suits how they relate to the first. Keep exact colors exactly, as SKILL.md (step 4) says.
+- Add a `neutral`: a grey with chroma 0.005–0.02 in the primary's hue, for backgrounds, surfaces, borders, and text. A website uses it more than any other color.
+- If the user gave one or two hues, add one more color that works with theirs and the mood: usually an accent in a hue that contrasts gently with the primary. With three or more hues, add nothing else.
+- Don't force the hues onto wheel angles. Say in the rationale how the colors work together and what each is for, e.g. "Use the mint for buttons and links, aqua for highlights, and bronze sparingly for badges."
+
 ### Neutral + accent
 
 What most products ship. A primary in the base hue, a neutral scale tinted with it, and at most one accent.

@@ -19,7 +19,7 @@ test.describe('generator form', () => {
   test('compares a balanced palette with the agent\'s original', async ({ page }) => {
     await open(page);
     await section(page, 'Schemes').click();
-    await page.getByLabel('Monochromatic').uncheck();
+    await page.getByLabel('From my colors').uncheck();
     await page.getByLabel('Triadic').check();
     await create(page).click();
     await expect(page.getByText(/^Balanced\./)).toBeVisible();
@@ -34,6 +34,23 @@ test.describe('generator form', () => {
     await expect(page.getByRole('button', { name: 'Show balanced' })).toHaveAttribute('aria-pressed', 'true');
     expect(await background()).not.toBe(balanced);
     await expect(page.locator('pre code')).toContainText('--color-color-2-500: oklch(63% 0.05');
+  });
+
+  test('suggests From my colors for several hues with Monochromatic', async ({ page }) => {
+    await open(page);
+    await section(page, 'Schemes').click();
+    await page.getByLabel('From my colors').uncheck();
+    await page.getByLabel('Monochromatic').check();
+    const hint = page.getByRole('note').filter({ hasText: 'Monochromatic uses only one hue' });
+    await expect(hint).toHaveCount(0);
+
+    await page.getByRole('button', { name: 'Add a hue' }).click();
+    await hue(page, 2).fill('#bf8645');
+    await expect(hint).toBeVisible();
+    await page.getByRole('button', { name: 'Use From my colors' }).click();
+    await expect(hint).toHaveCount(0);
+    await expect(section(page, 'Schemes')).toContainText('From my colors');
+    await expect(page.getByLabel('Monochromatic')).not.toBeChecked();
   });
 
   test('can turn balancing off', async ({ page }) => {
@@ -79,8 +96,9 @@ test.describe('generator form', () => {
     await open(page);
     await create(page).click();
     await expect(page.getByRole('status').filter({ hasText: 'Created 1 palette with Fake Large.' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Monochromatic', exact: true })).toBeVisible();
-    await expect(page.locator('.swatch')).toHaveCount(11);
+    await expect(page.getByRole('heading', { name: 'From my colors', exact: true })).toBeVisible();
+    // The hue plus at least one more color (the fake agent adds one).
+    await expect(page.locator('.swatch')).toHaveCount(22);
     await expect(page.locator('pre code')).toContainText('--color-color-1-50: oklch(97% 0.012 255);');
   });
 
@@ -106,7 +124,7 @@ test.describe('generator form', () => {
 
     await expect(section(page, 'Scale')).toContainText('50, 500, 950');
     await expect(section(page, 'Roles')).toContainText('primary, secondary, tertiary');
-    await expect(section(page, 'Schemes')).toContainText('Monochromatic, Triadic');
+    await expect(section(page, 'Schemes')).toContainText('From my colors, Triadic');
 
     const requestPromise = page.waitForRequest('/api/palettes');
     await create(page).click();
@@ -118,7 +136,7 @@ test.describe('generator form', () => {
       colorSystem: 'hex',
       scale: { kind: 'count', count: 3 },
       roles: [{ role: 'primary' }, { role: 'secondary' }, { role: 'tertiary' }],
-      schemes: ['monochromatic', 'triadic'],
+      schemes: ['from-my-colors', 'triadic'],
       agent: 'custom',
     });
 
@@ -159,7 +177,7 @@ test.describe('generator form', () => {
   test('shows errors next to the fields and opens their sections', async ({ page }) => {
     await open(page);
     await section(page, 'Schemes').click();
-    await page.getByLabel('Monochromatic').uncheck();
+    await page.getByLabel('From my colors').uncheck();
     await section(page, 'Schemes').click();
     await section(page, 'Token format').click();
     await page.getByLabel('Naming pattern', { exact: true }).fill('color-[name]');
@@ -175,9 +193,9 @@ test.describe('generator form', () => {
   test('marks the schemes invalid and focuses them when none are chosen', async ({ page }) => {
     await open(page);
     await section(page, 'Schemes').click();
-    await page.getByLabel('Monochromatic').uncheck();
+    await page.getByLabel('From my colors').uncheck();
     await create(page).click();
-    const first = page.getByRole('checkbox', { name: 'Monochromatic' });
+    const first = page.getByRole('checkbox', { name: 'From my colors' });
     await expect(first).toBeFocused();
     await expect(first).toHaveAttribute('aria-invalid', 'true');
     const describedBy = (await first.getAttribute('aria-describedby')) ?? '';
@@ -292,7 +310,7 @@ test.describe('generator form', () => {
     await create(page).click();
     const download = page.waitForEvent('download');
     await page.getByRole('button', { name: 'Download .css' }).click();
-    expect((await download).suggestedFilename()).toBe('palette-monochromatic.css');
+    expect((await download).suggestedFilename()).toBe('palette-from-my-colors.css');
   });
 
   test('previews the palette in light and dark', async ({ page }) => {
@@ -330,7 +348,7 @@ test.describe('generator form', () => {
     await triadic.getByLabel('What should change?').fill('warmer please');
     await triadic.getByRole('button', { name: 'Refine', exact: true }).click();
     await expect(triadic.getByText('Refined: warmer please')).toBeVisible();
-    await expect(page.locator('article', { has: page.getByRole('heading', { name: 'Monochromatic', exact: true }) })).toContainText('A fake palette.');
+    await expect(page.locator('article', { has: page.getByRole('heading', { name: 'From my colors', exact: true }) })).toContainText('A fake palette.');
   });
 
   test('regenerates one palette', async ({ page }) => {
@@ -353,7 +371,7 @@ test.describe('generator form', () => {
     await page.getByRole('button', { name: 'Refine…' }).click();
     await page.getByLabel('What should change?').fill('brighter');
     await page.getByRole('button', { name: 'Refine', exact: true }).click();
-    expect((await retry).postDataJSON()).toMatchObject({ schemes: ['monochromatic'], mood: 'calm', note: 'brighter' });
+    expect((await retry).postDataJSON()).toMatchObject({ schemes: ['from-my-colors'], mood: 'calm', note: 'brighter' });
     await expect(page.getByRole('alert')).toHaveCount(0);
   });
 

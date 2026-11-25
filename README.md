@@ -42,7 +42,7 @@ The basic workflow can be as objective or subjective as you want. Your model wil
 4. **Saturation.** Choose saturation, e.g. vivid, muted, pure, pastel, or earthy.
 5. **Color system.** Choose a color system, e.g. oklch, hex, rgb, hsl, or cmyk.
 6. **Relationships.** Choose the roles you need, e.g. primary, secondary, and tertiary, and the temperature you want for each (warm, cool, or neutral).
-7. **Schemes.** Finally, choose the schemes you need. This decides the actual outputs you get, e.g. monochromatic, analogous, complementary, split-complementary, triadic, or tetradic.
+7. **Schemes.** Finally, choose the schemes you need. This decides the actual outputs you get. The default, **From my colors**, keeps the colors you entered and adds what a website needs around them. You can also pick wheel-based schemes such as analogous or triadic, or other character schemes such as Functional UI.
 8. Hit **Create**.
 
 Each scheme you select produces its own palette, so you can compare them side by side and copy the one you like.
@@ -79,6 +79,7 @@ Some palettes are better described by what each color does than by angles on the
 
 | Scheme | Colors | What it's good for |
 | ------ | ------ | ------------------ |
+| **From my colors** (default) | Every color you entered, a neutral tinted with the first, and one more supporting color if you entered fewer than three | Turning colors you like into a palette for a website. Your colors stay exactly as you entered them, and the first one leads. |
 | **Neutral + accent** | A brand color, a tinted neutral scale, and an optional accent | What most products ship. Neutrals carry the screen and the brand color stands out. |
 | **Functional UI** | A brand color, a neutral, and success, warning, danger, and info | Application UI. The status colors still read as green, amber, red, and blue, but are tuned to your brand. |
 | **Sourced** | 3 to 5 colors drawn from a scene, material, or style | Palettes with a story, such as "desert dusk" or "Scandinavian interior". Name the source in the mood. |

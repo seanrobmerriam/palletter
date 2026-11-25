@@ -3,7 +3,12 @@ import { extractJsonCandidates, parseModelResponse } from './parse';
 import { PaletteRequestSchema, type PaletteRequestInput } from './schema';
 
 const request = (input: Partial<PaletteRequestInput> = {}) =>
-  PaletteRequestSchema.parse({ hues: [{ value: '#2563eb' }], scale: { kind: 'range', from: '100', to: '300' }, ...input });
+  PaletteRequestSchema.parse({
+    hues: [{ value: '#2563eb' }],
+    scale: { kind: 'range', from: '100', to: '300' },
+    schemes: ['monochromatic'],
+    ...input,
+  });
 
 const color = (name: string, steps = ['100', '200', '300'], role?: string) => ({
   name,

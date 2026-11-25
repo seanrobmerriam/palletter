@@ -110,7 +110,7 @@ test.describe('POST /api/palettes/refine', () => {
     expect(session.id).toMatch(/^[0-9a-f-]{36}$/);
 
     const response = await request.post('/api/palettes/refine', {
-      data: { sessionId: session.id, scheme: 'monochromatic', note: 'warmer' },
+      data: { sessionId: session.id, scheme: 'from-my-colors', note: 'warmer' },
     });
     const received = events(await response.text());
     const palette = received.find((e) => e.type === 'palette') as Event & { source: { rationale: string } };

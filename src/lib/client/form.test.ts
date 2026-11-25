@@ -31,7 +31,7 @@ describe('toRequestInput', () => {
       tokenFormat: 'css',
       namingPattern: '--color-[name]-[step]',
       colorSystem: 'oklch',
-      schemes: ['monochromatic'],
+      schemes: ['from-my-colors'],
       scale: { kind: 'full' },
     });
   });
@@ -101,7 +101,7 @@ describe('summaries', () => {
       saturation: 'Let the agent decide',
       system: 'oklch',
       roles: 'Let the agent decide',
-      schemes: 'Monochromatic',
+      schemes: 'From my colors',
     });
   });
 

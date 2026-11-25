@@ -130,7 +130,7 @@ describe('refinePalette', () => {
   }
 
   it('keeps the session when asked, and says so before done', async () => {
-    const { events, session } = await generateAndKeep({ hues: [{ name: 'blue' }] });
+    const { events, session } = await generateAndKeep({ hues: [{ name: 'blue' }], schemes: ['monochromatic'] });
     expect(events.slice(-2)).toEqual([{ type: 'session', id: 'session-1' }, { type: 'done' }]);
     expect(events.find((e) => e.type === 'palette')).toHaveProperty('source.scheme', 'monochromatic');
     session.close();
@@ -148,7 +148,7 @@ describe('refinePalette', () => {
   });
 
   it('regenerates without a note', async () => {
-    const { request, session } = await generateAndKeep({ hues: [{ name: 'blue' }] });
+    const { request, session } = await generateAndKeep({ hues: [{ name: 'blue' }], schemes: ['monochromatic'] });
     const events: GenerateEvent[] = [];
     await refinePalette(session, request, 'monochromatic', undefined, { timeoutMs: 10_000, emit: (e) => events.push(e) });
     expect(events.find((e) => e.type === 'palette')).toHaveProperty('source.rationale', 'A different take.');

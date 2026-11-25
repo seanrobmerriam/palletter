@@ -44,7 +44,7 @@ export function initialFormState(): FormState {
     balance: true,
     colorSystem: 'oklch',
     roles: [],
-    schemes: ['monochromatic'],
+    schemes: ['from-my-colors'],
   };
 }
 
@@ -124,6 +124,7 @@ const FORMAT_LABELS: Record<TokenFormat, string> = {
 };
 
 export const SCHEME_LABELS: Record<Scheme, string> = {
+  'from-my-colors': 'From my colors',
   monochromatic: 'Monochromatic',
   analogous: 'Analogous',
   complementary: 'Complementary',
@@ -138,6 +139,7 @@ export const SCHEME_LABELS: Record<Scheme, string> = {
 
 /** One line under each scheme in the form. */
 export const SCHEME_DESCRIPTIONS: Record<Scheme, string> = {
+  'from-my-colors': 'Your colors, plus the neutrals and extras a website needs.',
   monochromatic: 'One hue in many steps.',
   analogous: 'Three neighboring hues.',
   complementary: 'Two opposite hues.',

@@ -28,6 +28,7 @@ const SCHEME_HUES: Record<string, number[]> = {
   triadic: [0, 120, 240],
   tetradic: [0, 60, 180, 240],
   tonal: [-15, 0, 15],
+  'from-my-colors': [0, 180],
   'neutral-accent': [0, 180],
   functional: [0, 0, 140, 80, 25, 230],
   sourced: [0, 40, 200],
