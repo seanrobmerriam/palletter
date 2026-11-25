@@ -40,3 +40,19 @@ export function tokenName(pattern: string, parts: TokenNameParts): string {
   }
   return token;
 }
+
+/** The token name a swatch gets in a format, or undefined if the pattern can't name it. */
+export function tokenNameFor(
+  format: 'css' | 'tailwind' | 'dtcg',
+  pattern: string,
+  parts: TokenNameParts,
+): string | undefined {
+  try {
+    if (format === 'dtcg') return `${slugify(parts.name)}.${parts.step}`;
+    // Same as TAILWIND_PATTERN in tailwind.ts, which can't be imported here without an import cycle.
+    return tokenName(format === 'tailwind' ? '--color-[name]-[step]' : pattern, parts);
+  } catch (error) {
+    if (error instanceof FormatError) return undefined;
+    throw error;
+  }
+}

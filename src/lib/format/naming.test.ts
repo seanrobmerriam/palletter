@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FormatError, slugify, tokenName } from './naming';
+import { FormatError, slugify, tokenName, tokenNameFor } from './naming';
 
 describe('slugify', () => {
   it.each([
@@ -33,5 +33,19 @@ describe('tokenName', () => {
 
   it('throws when the result is not a custom property name', () => {
     expect(() => tokenName('--[name]', { name: '!!!', step: '500' })).toThrow(FormatError);
+  });
+});
+
+describe('tokenNameFor', () => {
+  const parts = { name: 'Sky Blue', role: 'primary', step: '500' };
+
+  it('names a swatch in each format', () => {
+    expect(tokenNameFor('css', '--brand-[role]-[step]', parts)).toBe('--brand-primary-500');
+    expect(tokenNameFor('tailwind', '--ignored-[step]', parts)).toBe('--color-sky-blue-500');
+    expect(tokenNameFor('dtcg', '--ignored', parts)).toBe('sky-blue.500');
+  });
+
+  it('is undefined when the pattern makes an invalid name', () => {
+    expect(tokenNameFor('css', '--[name]', { name: '!!!', step: '500' })).toBeUndefined();
   });
 });

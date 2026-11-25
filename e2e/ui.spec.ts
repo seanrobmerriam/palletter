@@ -26,12 +26,13 @@ test.describe('generator form', () => {
     await expect(page.getByText('Softened color 2 and color 3 so color 1 leads.')).toBeVisible();
 
     const swatch = page.locator('.swatch').nth(16); // color 2, step 500
-    const balanced = await swatch.getAttribute('aria-label');
+    const background = () => swatch.evaluate((el) => (el as HTMLElement).style.background);
+    const balanced = await background();
     const toggle = page.getByRole('button', { name: "Show the agent's original" });
     await toggle.click();
     await expect(page.getByText("Showing the agent's original palette")).toBeVisible();
     await expect(page.getByRole('button', { name: 'Show balanced' })).toHaveAttribute('aria-pressed', 'true');
-    expect(await swatch.getAttribute('aria-label')).not.toBe(balanced);
+    expect(await background()).not.toBe(balanced);
     await expect(page.locator('pre code')).toContainText('--color-color-2-500: oklch(63% 0.05');
   });
 
@@ -139,6 +140,14 @@ test.describe('generator form', () => {
     expect(hit).toBe('Hue 1 picker');
   });
 
+  test('copies a color chosen with the picker into the text', async ({ page }) => {
+    await open(page);
+    await page.getByLabel('Hue 1 picker').fill('#ff0000');
+    await expect(hue(page)).toHaveValue('#ff0000');
+    await page.getByLabel('Hue 1 picker').fill('#00ff00');
+    await expect(hue(page)).toHaveValue('#00ff00');
+  });
+
   test('keeps the picker in step with the text', async ({ page }) => {
     await open(page);
     await hue(page).fill('rgb(255 0 0)');
@@ -161,6 +170,24 @@ test.describe('generator form', () => {
     await expect(page.getByText('Use a custom property name such as --color-[name]-[step]')).toBeVisible();
     await expect(page.getByLabel('Naming pattern', { exact: true })).toBeFocused();
     await expect(page.getByLabel('Naming pattern', { exact: true })).toHaveAttribute('aria-invalid', 'true');
+  });
+
+  test('marks the schemes invalid and focuses them when none are chosen', async ({ page }) => {
+    await open(page);
+    await section(page, 'Schemes').click();
+    await page.getByLabel('Monochromatic').uncheck();
+    await create(page).click();
+    const first = page.getByRole('checkbox', { name: 'Monochromatic' });
+    await expect(first).toBeFocused();
+    await expect(first).toHaveAttribute('aria-invalid', 'true');
+    const describedBy = (await first.getAttribute('aria-describedby')) ?? '';
+    const ids = describedBy.split(/\s+/).filter(Boolean);
+    const texts = await Promise.all(ids.map((i) => page.locator(`[id="${i}"]`).textContent()));
+    expect(texts.join(' ')).toContain('Choose at least one scheme');
+    // Choosing a scheme clears the error.
+    await page.getByLabel('Triadic').check();
+    await create(page).click();
+    await expect(page.getByRole('checkbox', { name: 'Triadic' })).not.toHaveAttribute('aria-invalid', 'true');
   });
 
   test('can be used with only the keyboard', async ({ page }) => {
@@ -202,15 +229,43 @@ test.describe('generator form', () => {
     await context.grantPermissions(['clipboard-read', 'clipboard-write']);
     await open(page);
     await create(page).click();
-    await page.getByRole('button', { name: /^color 1 500: oklch\(63% 0\.05 260\)\..*Copy value/ }).click();
+    await page.getByRole('button', { name: 'Copy color 1 500 value' }).click();
     expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('oklch(63% 0.05 260)');
-    await expect(page.locator('.swatch').nth(5)).toContainText('Copied');
+    await expect(page.getByRole('button', { name: 'Copied color 1 500' })).toBeVisible();
   });
 
-  test('shows contrast badges on swatches', async ({ page }) => {
+  test('shows only the step on each swatch, with details in a popover', async ({ page }) => {
     await open(page);
     await create(page).click();
-    await expect(page.locator('.swatch .badge').first()).toHaveText(/\d+\.\d (AAA|AA|AA large|low)/);
+    await expect(page.locator('.swatch').nth(5)).toHaveText('500');
+    await page.getByRole('button', { name: 'Details for color 1 500' }).click();
+    const details = page.getByRole('group', { name: 'color 1 500 details' });
+    await expect(details).toContainText('oklch(63% 0.05 260)');
+    await expect(details).toContainText('--color-color-1-500');
+    await expect(details).toContainText(/White text\s*\d+\.\d\d:1 (AAA|AA|AA large|fails)/);
+    await expect(details).toContainText(/Black text\s*\d+\.\d\d:1 (AAA|AA|AA large|fails)/);
+  });
+
+  test('opens and closes swatch details with the keyboard', async ({ page }) => {
+    await open(page);
+    await create(page).click();
+    const trigger = page.getByRole('button', { name: 'Details for color 1 500' });
+    await trigger.focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('group', { name: 'color 1 500 details' })).toBeVisible();
+    await expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('group', { name: 'color 1 500 details' })).toBeHidden();
+    await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  test('copies a token name from the swatch details', async ({ page, context }) => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    await open(page);
+    await create(page).click();
+    await page.getByRole('button', { name: 'Details for color 1 50' , exact: true }).click();
+    await page.getByRole('button', { name: 'Copy token name' }).click();
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('--color-color-1-50');
   });
 
   test('switches format and color system without asking the agent again', async ({ page }) => {
@@ -225,7 +280,10 @@ test.describe('generator form', () => {
     await choose(page, 'in', 'hex');
     await expect(page.locator('pre code')).toContainText('@theme {');
     await expect(page.locator('pre code')).toContainText(/--color-color-1-500: #[0-9a-f]{6};/);
-    await expect(page.locator('.swatch').nth(5)).toContainText(/#[0-9a-f]{6}/);
+    await page.getByRole('button', { name: 'Details for color 1 500' }).click();
+    const details = page.getByRole('group', { name: 'color 1 500 details' });
+    await expect(details).toContainText(/hex\s*#[0-9a-f]{6}/);
+    await expect(details).toContainText('--color-color-1-500');
     expect(requests).toBe(0);
   });
 
@@ -254,6 +312,9 @@ test.describe('generator form', () => {
     await expect(page.getByRole('tab', { name: 'Contrast' })).toHaveAttribute('aria-selected', 'true');
     await expect(page.getByRole('tab', { name: 'Contrast' })).toBeFocused();
     await expect(page.locator('td')).toHaveCount(121);
+    // The caption is for screen readers only.
+    await expect(page.locator('caption')).toHaveCSS('position', 'absolute');
+    await expect(page.locator('caption')).toHaveCSS('width', '1px');
     await expect(page.locator('td').first()).toHaveAttribute('title', /color 1 50 on color 1 50: 1\.00:1, Fails/);
   });
 
