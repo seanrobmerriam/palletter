@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { errorFor, hueToInput, initialFormState, summaries, toPickerHex, toRequestInput, validate, type FormState } from './form';
+import {
+  errorFor,
+  hueToInput,
+  initialFormState,
+  summaries,
+  toBuildSettings,
+  toPickerHex,
+  toRequestInput,
+  toSuggestInput,
+  validateSuggest,
+  type FormState,
+} from './form';
 
 const state = (overrides: Partial<FormState> = {}): FormState => ({ ...initialFormState(), ...overrides });
 
@@ -31,7 +42,7 @@ describe('toRequestInput', () => {
       tokenFormat: 'css',
       namingPattern: '--color-[name]-[step]',
       colorSystem: 'oklch',
-      schemes: ['monochromatic'],
+      schemes: [],
       scale: { kind: 'full' },
     });
   });
@@ -74,16 +85,51 @@ describe('toRequestInput', () => {
   });
 });
 
-describe('validate', () => {
-  it('passes the default form', () => {
-    expect(validate(initialFormState()).ok).toBe(true);
+describe('toSuggestInput', () => {
+  it('sends the colors and how many directions by default', () => {
+    expect(toSuggestInput(initialFormState())).toEqual({ hues: [{ value: '#2563eb' }], directions: 2 });
   });
 
-  it('reports errors by field', () => {
-    const result = validate(state({ schemes: [], scaleKind: 'range', from: '700', to: '100', namingPattern: 'color' }));
+  it('sends the purpose and hints that are set', () => {
+    expect(
+      toSuggestInput(
+        state({ mood: ' a bakery ', saturation: 'muted', roles: [{ role: 'background', temperature: '' }], schemes: ['analogous'], directions: 3 }),
+      ),
+    ).toEqual({
+      hues: [{ value: '#2563eb' }],
+      directions: 3,
+      purpose: 'a bakery',
+      saturation: 'muted',
+      roles: [{ role: 'background' }],
+      schemes: ['analogous'],
+    });
+  });
+});
+
+describe('toBuildSettings', () => {
+  it('collects what building and exporting the palette needs', () => {
+    expect(toBuildSettings(state({ tokenFormat: 'tailwind', balance: false, scaleKind: 'count', count: 3 }))).toEqual({
+      scale: { kind: 'count', count: 3 },
+      balance: false,
+      tokenFormat: 'tailwind',
+      namingPattern: '--color-[name]-[step]',
+      colorSystem: 'oklch',
+    });
+  });
+});
+
+describe('validate', () => {
+  it('passes the default form', () => {
+    expect(validateSuggest(initialFormState()).ok).toBe(true);
+  });
+
+  it('reports errors by field, with no scheme required', () => {
+    const result = validateSuggest(
+      state({ schemes: [], scaleKind: 'range', from: '700', to: '100', namingPattern: 'color', directions: 9, mood: 'x'.repeat(201) }),
+    );
     expect(result.ok).toBe(false);
     if (result.ok) return;
-    expect(Object.keys(result.errors).sort()).toEqual(['namingPattern', 'scale.to', 'schemes']);
+    expect(Object.keys(result.errors).sort()).toEqual(['directions', 'mood', 'namingPattern', 'scale.to']);
   });
 
   it('finds nested errors for a field', () => {
@@ -96,12 +142,13 @@ describe('validate', () => {
 describe('summaries', () => {
   it('describes the defaults', () => {
     expect(summaries(initialFormState())).toEqual({
+      directions: '2 at a time',
       format: 'CSS custom properties, --color-[name]-[step]',
       scale: 'Full scale, 50–950 (11 steps)',
       saturation: 'Let the agent decide',
       system: 'oklch',
       roles: 'Let the agent decide',
-      schemes: 'Monochromatic',
+      schemes: 'Let the agent decide',
     });
   });
 

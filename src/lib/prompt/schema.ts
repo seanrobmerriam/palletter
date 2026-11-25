@@ -67,6 +67,8 @@ export const SCHEMES = [
   'neutral-accent',
   'functional',
   'sourced',
+  /** A palette built from colors the user chose from suggestions. Not offered in the form. */
+  'suggested',
 ] as const;
 export const SchemeSchema = z.enum(SCHEMES);
 export type Scheme = z.infer<typeof SchemeSchema>;
@@ -75,7 +77,7 @@ export type Scheme = z.infer<typeof SchemeSchema>;
  * Schemes defined by what each color does rather than by angles on the color wheel. Palletter
  * doesn't check their hues against reference angles.
  */
-export const CHARACTER_SCHEMES = ['neutral-accent', 'functional', 'sourced'] as const satisfies readonly Scheme[];
+export const CHARACTER_SCHEMES = ['neutral-accent', 'functional', 'sourced', 'suggested'] as const satisfies readonly Scheme[];
 export type CharacterScheme = (typeof CHARACTER_SCHEMES)[number];
 export const isCharacterScheme = (scheme: Scheme): scheme is CharacterScheme =>
   (CHARACTER_SCHEMES as readonly Scheme[]).includes(scheme);

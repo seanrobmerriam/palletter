@@ -68,6 +68,33 @@ function exactColors(request: PaletteRequest): Oklch[] {
   });
 }
 
+/** How far apart two colors are, in the units `sameColor` uses. */
+function colorGap(a: Oklch, b: Oklch): number {
+  const hue = Math.max(a.c, b.c) < 0.03 ? 0 : hueDistance(a.h ?? 0, b.h ?? 0) / 360;
+  return Math.abs(a.l - b.l) + Math.abs(a.c - b.c) + hue;
+}
+
+/**
+ * The step holding one of the user's exact colors: of the steps that match one, the closest
+ * match. A pale step can come near a different exact color, such as a background, so the first
+ * match isn't enough.
+ */
+function pinnedStep(steps: [Step, Oklch][], exact: Oklch[]): Step | undefined {
+  let best: Step | undefined;
+  let gap = Infinity;
+  for (const [step, oklch] of steps) {
+    for (const e of exact) {
+      if (!sameColor(e, oklch)) continue;
+      const g = colorGap(e, oklch);
+      if (g < gap) {
+        gap = g;
+        best = step;
+      }
+    }
+  }
+  return best;
+}
+
 /** Whether a step is one of the user's exact colors, allowing for rounding in the prompt. */
 function sameColor(a: Oklch, b: Oklch): boolean {
   if (Math.abs(a.l - b.l) > 0.006 || Math.abs(a.c - b.c) > 0.006) return false;
@@ -230,7 +257,7 @@ export function harmonizeWithNotes(
       const oklch = value === undefined ? undefined : parseOklch(value);
       return oklch ? [[step as Step, oklch]] : [];
     });
-    const pinned = steps.find(([, oklch]) => exact.some((e) => sameColor(e, oklch)))?.[0];
+    const pinned = pinnedStep(steps, exact);
     const peak = Math.max(0, ...steps.map(([, oklch]) => oklch.c));
     return { color, steps, peak, ...(pinned ? { pinned } : {}) };
   });

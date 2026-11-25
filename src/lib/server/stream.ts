@@ -1,5 +1,4 @@
-/** Server-sent event responses for the palette endpoints. */
-import type { GenerateEvent } from '../palette/generate';
+/** Server-sent event responses for the palette and suggestion endpoints. */
 
 /** How often to send a keep-alive comment while the agent works. */
 export const KEEP_ALIVE_MS = 5000;
@@ -13,9 +12,9 @@ export function jsonResponse(status: number, body: unknown): Response {
  * disconnects. Agents can think in silence for a long time, so a comment line every few seconds
  * keeps servers and proxies from closing the connection as idle; event readers ignore it.
  */
-export function eventStreamResponse(
+export function eventStreamResponse<E extends { type: string }>(
   request: Request,
-  run: (emit: (event: GenerateEvent) => void, signal: AbortSignal) => Promise<void>,
+  run: (emit: (event: E) => void, signal: AbortSignal) => Promise<void>,
 ): Response {
   const encoder = new TextEncoder();
   const abort = new AbortController();

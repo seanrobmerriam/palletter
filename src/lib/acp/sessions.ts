@@ -5,12 +5,13 @@
  */
 import { randomUUID } from 'node:crypto';
 import type { PaletteRequest } from '../prompt/schema';
+import type { SuggestRequest } from '../suggest/schema';
 import type { AgentSession } from './process';
 
-export type StoredSession = {
+export type StoredSession<R = PaletteRequest> = {
   id: string;
   session: AgentSession;
-  request: PaletteRequest;
+  request: R;
   lastUsed: number;
   busy: boolean;
 };
@@ -18,8 +19,8 @@ export type StoredSession = {
 export const SESSION_TTL_MS = 30 * 60_000;
 export const MAX_SESSIONS = 20;
 
-export class SessionStore {
-  private readonly sessions = new Map<string, StoredSession>();
+export class SessionStore<R = PaletteRequest> {
+  private readonly sessions = new Map<string, StoredSession<R>>();
 
   constructor(
     private readonly ttlMs = SESSION_TTL_MS,
@@ -27,7 +28,7 @@ export class SessionStore {
     private readonly now: () => number = Date.now,
   ) {}
 
-  add(session: AgentSession, request: PaletteRequest): string {
+  add(session: AgentSession, request: R): string {
     this.sweep();
     while (this.sessions.size >= this.max) {
       const oldest = [...this.sessions.values()].filter((s) => !s.busy).sort((a, b) => a.lastUsed - b.lastUsed)[0];
@@ -39,7 +40,7 @@ export class SessionStore {
     return id;
   }
 
-  get(id: string): StoredSession | undefined {
+  get(id: string): StoredSession<R> | undefined {
     this.sweep();
     return this.sessions.get(id);
   }
@@ -71,3 +72,6 @@ export class SessionStore {
 
 /** The server's session store. */
 export const sessions = new SessionStore();
+
+/** Sessions kept open after suggestions, for more directions and more like this. */
+export const suggestSessions = new SessionStore<SuggestRequest>();

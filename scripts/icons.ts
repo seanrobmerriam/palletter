@@ -32,6 +32,8 @@ export const ICONS = [
   'info',
   'palette',
   'trash-2',
+  'sparkles',
+  'check-check',
 ];
 
 const all = lucide.icons as Record<string, unknown>;

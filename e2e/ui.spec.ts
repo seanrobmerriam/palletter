@@ -6,126 +6,200 @@ async function open(page: Page) {
 }
 
 const hue = (page: Page, n = 1) => page.getByLabel(`Hue ${n}: color value or name`);
-/** The Accordion trigger for a collapsed step, e.g. "2 Token format CSS custom properties, …". */
-const section = (page: Page, name: string) => page.getByRole('button', { name: new RegExp(`^\\d+ ${name}`) });
+/** Open Advanced options, then one of its sections, e.g. "Token format". */
+async function advanced(page: Page, name: string) {
+  const trigger = page.getByRole('button', { name: /^Advanced options/ });
+  if ((await trigger.getAttribute('aria-expanded')) !== 'true') await trigger.click();
+  await page.getByRole('button', { name: new RegExp(`^${name}`) }).click();
+}
 /** Choose an option in an SV5UI Select. */
 async function choose(page: Page, label: string, option: string) {
   await page.getByLabel(label, { exact: true }).click();
   await page.getByRole('option', { name: option, exact: true }).click();
 }
-const create = (page: Page) => page.getByRole('button', { name: 'Create' });
+const suggest = (page: Page) => page.getByRole('button', { name: 'Suggest colors' });
+const status = (page: Page, text: string | RegExp) => page.getByRole('status').filter({ hasText: text });
 
-test.describe('generator form', () => {
-  test('compares a balanced palette with the agent\'s original', async ({ page }) => {
+/** Suggest colors and keep the first direction's background, so a palette is built. */
+async function suggestAndKeep(page: Page) {
+  await open(page);
+  await suggest(page).click();
+  await expect(status(page, '2 directions from Fake Large.')).toBeVisible();
+  await page.getByRole('checkbox', { name: 'Keep sand 1' }).click();
+  await expect(page.getByRole('heading', { name: 'Scales and tokens' })).toBeVisible();
+}
+
+test.describe('suggestions', () => {
+  test('suggests directions of new colors that go with yours', async ({ page }) => {
     await open(page);
-    await section(page, 'Schemes').click();
-    await page.getByLabel('Monochromatic').uncheck();
-    await page.getByLabel('Triadic').check();
-    await create(page).click();
-    await expect(page.getByText(/^Balanced\./)).toBeVisible();
-    await expect(page.getByText('Softened color 2 and color 3 so color 1 leads.')).toBeVisible();
+    const request = page.waitForRequest('/api/suggest');
+    await suggest(page).click();
+    expect((await request).postDataJSON()).toEqual({ hues: [{ value: '#2563eb' }], directions: 2, agent: 'custom' });
 
-    const swatch = page.locator('.swatch').nth(16); // color 2, step 500
-    const background = () => swatch.evaluate((el) => (el as HTMLElement).style.background);
-    const balanced = await background();
-    const toggle = page.getByRole('button', { name: "Show the agent's original" });
-    await toggle.click();
-    await expect(page.getByText("Showing the agent's original palette")).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Show balanced' })).toHaveAttribute('aria-pressed', 'true');
-    expect(await background()).not.toBe(balanced);
-    await expect(page.locator('pre code')).toContainText('--color-color-2-500: oklch(63% 0.05');
+    await expect(status(page, '2 directions from Fake Large. Keep the colors you like.')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Direction 1' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Direction 2' })).toBeVisible();
+    const first = page.locator('article', { has: page.getByRole('heading', { name: 'Direction 1' }) });
+    await expect(first.getByRole('group', { name: /Your colors/ })).toContainText('your color 1 (primary)');
+    await expect(first.getByRole('list', { name: 'Suggested colors' }).getByRole('listitem')).toHaveCount(3);
+    await expect(first).toContainText('A quiet background.');
+    // Nothing is kept yet, so there's no palette.
+    await expect(page.getByText('Keep the suggestions you like, from any direction')).toBeVisible();
   });
 
-  test('can turn balancing off', async ({ page }) => {
+  test('builds the palette from your colors and the ones you keep, without asking the agent', async ({ page }) => {
     await open(page);
-    await section(page, 'Saturation').click();
-    await page.getByRole('switch', { name: 'Balance the palette' }).click();
-    await expect(section(page, 'Saturation')).toContainText('not balanced');
-    const requestPromise = page.waitForRequest('/api/palettes');
-    await create(page).click();
-    expect((await requestPromise).postDataJSON()).toMatchObject({ balance: false });
-    await expect(page.getByRole('status').filter({ hasText: 'Created 1 palette with Fake Large.' })).toBeVisible();
-    await expect(page.getByRole('button', { name: "Show the agent's original" })).toHaveCount(0);
+    await suggest(page).click();
+    await expect(status(page, '2 directions')).toBeVisible();
+    let requests = 0;
+    page.on('request', (r) => {
+      if (r.url().includes('/api/')) requests++;
+    });
+    await page.getByRole('checkbox', { name: 'Keep sand 1' }).click();
+    await page.getByRole('checkbox', { name: 'Keep accent 2' }).click();
+    const palette = page.locator('article', { has: page.getByRole('heading', { name: 'Scales and tokens' }) });
+    await expect(palette).toContainText('Your color, with 2 suggestions from "Direction 1" and "Direction 2".');
+    await expect(palette.getByRole('region', { name: 'your color 1' })).toBeVisible();
+    await expect(palette.getByRole('region', { name: 'sand 1' })).toBeVisible();
+    await expect(palette.getByRole('region', { name: 'accent 2' })).toBeVisible();
+    await expect(palette.locator('pre code')).toContainText('--color-accent-2-500');
+    // Your exact color is in the palette, unchanged.
+    await expect(palette.locator('pre code')).toContainText(/--color-your-color-1-\d+: oklch\(54\.\d% 0\.2\d* 26\d\.\d\);/);
+
+    // Unkeeping removes it.
+    await page.getByRole('checkbox', { name: 'Keep accent 2' }).click();
+    await expect(palette.getByRole('region', { name: 'accent 2' })).toHaveCount(0);
+    expect(requests).toBe(0);
+  });
+
+  test('keeps a whole direction at once', async ({ page }) => {
+    await open(page);
+    await suggest(page).click();
+    const second = page.locator('article', { has: page.getByRole('heading', { name: 'Direction 2' }) });
+    await second.getByRole('button', { name: 'Keep all' }).click();
+    for (const name of ['sand 2', 'ink 2', 'accent 2']) await expect(page.getByRole('checkbox', { name: `Keep ${name}` })).toBeChecked();
+    await expect(second.getByRole('button', { name: 'All kept' })).toBeDisabled();
+  });
+
+  test('suggests more like one color, right after it', async ({ page }) => {
+    await open(page);
+    await suggest(page).click();
+    await page.getByRole('button', { name: 'More like accent 1' }).click();
+    const first = page.locator('article', { has: page.getByRole('heading', { name: 'Direction 1' }) });
+    const items = first.getByRole('list', { name: 'Suggested colors' }).getByRole('listitem');
+    await expect(items).toHaveCount(6);
+    await expect(items.nth(3)).toContainText('accent 1 1');
+    await expect(items.nth(3)).toContainText('Like accent 1.');
+    await page.getByRole('checkbox', { name: 'Keep accent 1 2' }).click();
+    await expect(page.locator('pre code')).toContainText('--color-accent-1-2-500');
+  });
+
+  test('suggests more directions in the same session', async ({ page }) => {
+    await open(page);
+    await suggest(page).click();
+    await expect(status(page, '2 directions')).toBeVisible();
+    const more = page.waitForRequest('/api/suggest/more');
+    await page.getByRole('button', { name: 'More directions' }).click();
+    expect((await more).postDataJSON()).toMatchObject({ kind: 'directions', count: 2 });
+    await expect(status(page, 'Added 2 more directions.')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Direction 4' })).toBeVisible();
+  });
+
+  test('starts a new session for more directions when the old one has closed', async ({ page }) => {
+    await open(page);
+    await page.getByLabel("What's it for?").fill('a bakery');
+    await suggest(page).click();
+    await expect(status(page, '2 directions')).toBeVisible();
+    await page.route('**/api/suggest/more', (route) =>
+      route.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ code: 'session_expired', error: 'Closed.' }) }),
+    );
+    const retry = page.waitForRequest((r) => r.url().endsWith('/api/suggest') && r.method() === 'POST');
+    await page.getByRole('button', { name: 'More directions' }).click();
+    expect((await retry).postDataJSON()).toMatchObject({ purpose: 'a bakery', directions: 2 });
+    await expect(page.getByRole('heading', { name: 'Direction 1' })).toHaveCount(2);
+    await expect(page.getByRole('alert')).toHaveCount(0);
+  });
+
+  test('asks for the number of directions set in Advanced options', async ({ page }) => {
+    await open(page);
+    await advanced(page, 'Directions');
+    await page.getByLabel('Directions at a time').fill('3');
+    await suggest(page).click();
+    await expect(status(page, '3 directions')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Direction 3' })).toBeVisible();
+  });
+
+  test('sends hints from Advanced options', async ({ page }) => {
+    await open(page);
+    await hue(page).fill('terracotta');
+    await page.getByLabel("What's it for?").fill('warm and welcoming');
+    await advanced(page, 'Saturation');
+    await choose(page, 'Saturation', 'Muted: calm and sophisticated');
+    await advanced(page, 'Roles');
+    await page.getByRole('button', { name: 'Add a role' }).click();
+    await page.getByLabel('Role 1', { exact: true }).fill('background');
+    await advanced(page, 'Relationships');
+    await page.getByLabel('Analogous').check();
+    await expect(page.getByRole('button', { name: /^Relationships/ })).toContainText('Analogous');
+
+    const request = page.waitForRequest('/api/suggest');
+    await suggest(page).click();
+    expect((await request).postDataJSON()).toEqual({
+      hues: [{ name: 'terracotta' }],
+      directions: 2,
+      purpose: 'warm and welcoming',
+      saturation: 'muted',
+      roles: [{ role: 'background' }],
+      schemes: ['analogous'],
+      agent: 'custom',
+    });
   });
 
   test('picks a model from the ones the agent offers', async ({ page }) => {
     await open(page);
-    const model = page.getByLabel('Model', { exact: true });
-    await expect(model).toContainText('Default (recommended)');
+    await expect(page.getByLabel('Model', { exact: true })).toContainText('Default (recommended)');
 
     // The default isn't sent, so the agent keeps its own default.
-    let requestPromise = page.waitForRequest('/api/palettes');
-    await create(page).click();
-    expect((await requestPromise).postDataJSON()).not.toHaveProperty('model');
-    await expect(page.getByRole('status').filter({ hasText: 'Created 1 palette with Fake Large.' })).toBeVisible();
+    let request = page.waitForRequest('/api/suggest');
+    await suggest(page).click();
+    expect((await request).postDataJSON()).not.toHaveProperty('model');
+    await expect(status(page, '2 directions from Fake Large.')).toBeVisible();
 
     await page.getByLabel('Model', { exact: true }).click();
     // Each option's name includes its description, e.g. "Fake Small Quick".
     await page.getByRole('option', { name: /^Fake Small/ }).click();
-    requestPromise = page.waitForRequest('/api/palettes');
-    await create(page).click();
-    expect((await requestPromise).postDataJSON()).toMatchObject({ model: 'fake-small' });
-    await expect(page.getByRole('status').filter({ hasText: 'Created 1 palette with Fake Small.' })).toBeVisible();
-    await expect(page.getByText('A fake palette from fake-small.')).toBeVisible();
+    request = page.waitForRequest('/api/suggest');
+    await suggest(page).click();
+    expect((await request).postDataJSON()).toMatchObject({ model: 'fake-small' });
+    await expect(status(page, '2 directions from Fake Small.')).toBeVisible();
+    await expect(page.getByText('A fake direction from fake-small.').first()).toBeVisible();
   });
 
+  test('can be cancelled', async ({ page }) => {
+    await open(page);
+    await page.getByLabel("What's it for?").fill('fake:slow');
+    await suggest(page).click();
+    await page.getByRole('button', { name: 'Cancel' }).click();
+    await expect(page.getByText('Cancelled.')).toBeVisible();
+    await expect(suggest(page)).toBeVisible();
+  });
+
+  test('shows agent errors with details', async ({ page }) => {
+    await open(page);
+    await page.getByLabel("What's it for?").fill('fake:bad');
+    await suggest(page).click();
+    const alert = page.getByRole('alert');
+    await expect(alert).toContainText('still had problems after one repair attempt');
+    await alert.getByText('Details').click();
+    await expect(alert.locator('pre')).toContainText('yours');
+  });
+});
+
+test.describe('form', () => {
   test('shows that the agent is ready', async ({ page }) => {
     await open(page);
     await expect(page.locator('.agent-status')).toHaveText(/Ready/);
     await expect(page.getByLabel('Agent')).toContainText('Custom (bun)');
-  });
-
-  test('creates a palette from only the hue', async ({ page }) => {
-    await open(page);
-    await create(page).click();
-    await expect(page.getByRole('status').filter({ hasText: 'Created 1 palette with Fake Large.' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Monochromatic', exact: true })).toBeVisible();
-    await expect(page.locator('.swatch')).toHaveCount(11);
-    await expect(page.locator('pre code')).toContainText('--color-color-1-50: oklch(97% 0.012 255);');
-  });
-
-  test('sends every choice the form offers', async ({ page }) => {
-    await open(page);
-    await hue(page).fill('terracotta');
-    await page.getByRole('button', { name: 'Add a hue' }).click();
-    await expect(hue(page, 2)).toBeFocused();
-    await hue(page, 2).fill('#336699');
-    await page.getByLabel('Mood').fill('warm');
-
-    await section(page, 'Token format').click();
-    await page.getByLabel('Tailwind CSS v4').check();
-    await section(page, 'Scale').click();
-    await page.getByLabel('A number of steps').check();
-    await page.getByLabel('Steps', { exact: true }).fill('3');
-    await section(page, 'Color system').click();
-    await page.getByLabel('hex', { exact: true }).check();
-    await section(page, 'Roles').click();
-    await page.getByRole('button', { name: 'Primary, secondary, tertiary' }).click();
-    await section(page, 'Schemes').click();
-    await page.getByLabel('Triadic').check();
-
-    await expect(section(page, 'Scale')).toContainText('50, 500, 950');
-    await expect(section(page, 'Roles')).toContainText('primary, secondary, tertiary');
-    await expect(section(page, 'Schemes')).toContainText('Monochromatic, Triadic');
-
-    const requestPromise = page.waitForRequest('/api/palettes');
-    await create(page).click();
-    const body = (await requestPromise).postDataJSON();
-    expect(body).toMatchObject({
-      hues: [{ name: 'terracotta' }, { value: '#336699' }],
-      mood: 'warm',
-      tokenFormat: 'tailwind',
-      colorSystem: 'hex',
-      scale: { kind: 'count', count: 3 },
-      roles: [{ role: 'primary' }, { role: 'secondary' }, { role: 'tertiary' }],
-      schemes: ['monochromatic', 'triadic'],
-      agent: 'custom',
-    });
-
-    await expect(page.getByText('Created 2 palettes with Fake Large.')).toBeVisible();
-    await expect(page.locator('pre code').first()).toContainText('@theme {');
-    await expect(page.locator('pre code').first()).toContainText('--color-primary-color-50: #');
-    await expect(page.getByText('primary', { exact: true }).first()).toBeVisible();
   });
 
   test('lets you click the color picker', async ({ page }) => {
@@ -158,120 +232,107 @@ test.describe('generator form', () => {
 
   test('shows errors next to the fields and opens their sections', async ({ page }) => {
     await open(page);
-    await section(page, 'Schemes').click();
-    await page.getByLabel('Monochromatic').uncheck();
-    await section(page, 'Schemes').click();
-    await section(page, 'Token format').click();
+    await advanced(page, 'Token format');
     await page.getByLabel('Naming pattern', { exact: true }).fill('color-[name]');
-    await section(page, 'Token format').click();
+    // Close Advanced options; the error opens it again.
+    await page.getByRole('button', { name: /^Advanced options/ }).click();
 
-    await create(page).click();
-    await expect(page.getByText('Choose at least one scheme')).toBeVisible();
+    await suggest(page).click();
     await expect(page.getByText('Use a custom property name such as --color-[name]-[step]')).toBeVisible();
     await expect(page.getByLabel('Naming pattern', { exact: true })).toBeFocused();
     await expect(page.getByLabel('Naming pattern', { exact: true })).toHaveAttribute('aria-invalid', 'true');
-  });
-
-  test('marks the schemes invalid and focuses them when none are chosen', async ({ page }) => {
-    await open(page);
-    await section(page, 'Schemes').click();
-    await page.getByLabel('Monochromatic').uncheck();
-    await create(page).click();
-    const first = page.getByRole('checkbox', { name: 'Monochromatic' });
-    await expect(first).toBeFocused();
-    await expect(first).toHaveAttribute('aria-invalid', 'true');
-    const describedBy = (await first.getAttribute('aria-describedby')) ?? '';
-    const ids = describedBy.split(/\s+/).filter(Boolean);
-    const texts = await Promise.all(ids.map((i) => page.locator(`[id="${i}"]`).textContent()));
-    expect(texts.join(' ')).toContain('Choose at least one scheme');
-    // Choosing a scheme clears the error.
-    await page.getByLabel('Triadic').check();
-    await create(page).click();
-    await expect(page.getByRole('checkbox', { name: 'Triadic' })).not.toHaveAttribute('aria-invalid', 'true');
   });
 
   test('can be used with only the keyboard', async ({ page }) => {
     await open(page);
     await hue(page).focus();
     await page.keyboard.press('Enter');
-    await expect(page.getByText('Created 1 palette with Fake Large.')).toBeVisible();
+    await expect(status(page, '2 directions')).toBeVisible();
+    const keep = page.getByRole('checkbox', { name: 'Keep sand 1' });
+    await keep.focus();
+    await page.keyboard.press('Space');
+    await expect(keep).toBeChecked();
   });
 
-  test('can be cancelled', async ({ page }) => {
-    await open(page);
-    await page.getByLabel('Mood').fill('fake:slow');
-    await create(page).click();
-    await page.getByRole('button', { name: 'Cancel' }).click();
-    await expect(page.getByText('Cancelled.')).toBeVisible();
-    await expect(create(page)).toBeVisible();
+  test('fits a phone screen without sideways scrolling', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await suggestAndKeep(page);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  });
+});
+
+test.describe('palette', () => {
+  test('compares the balanced palette with the one before balancing', async ({ page }) => {
+    await suggestAndKeep(page);
+    await expect(page.getByText(/^Balanced\./)).toBeVisible();
+    const swatch = page.locator('.swatch').nth(3); // your color 1, step 300
+    const background = () => swatch.evaluate((el) => (el as HTMLElement).style.background);
+    const balanced = await background();
+    await page.getByRole('button', { name: 'Show before balancing' }).click();
+    await expect(page.getByText('Showing the palette before Palletter balanced it.')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Show balanced' })).toHaveAttribute('aria-pressed', 'true');
+    expect(await background()).not.toBe(balanced);
   });
 
-  test('shows agent errors with details', async ({ page }) => {
+  test('can turn balancing off', async ({ page }) => {
     await open(page);
-    await page.getByLabel('Mood').fill('fake:bad');
-    await create(page).click();
-    const alert = page.getByRole('alert');
-    await expect(alert).toContainText('still had problems after one repair attempt');
-    await alert.getByText('Details').click();
-    await expect(alert.locator('pre')).toContainText('is missing steps 50');
+    await advanced(page, 'Saturation');
+    await page.getByRole('switch', { name: 'Balance the palette' }).click();
+    await expect(page.getByRole('button', { name: /^Saturation/ })).toContainText('not balanced');
+    await suggest(page).click();
+    await page.getByRole('checkbox', { name: 'Keep sand 1' }).click();
+    await expect(page.getByRole('heading', { name: 'Scales and tokens' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Show before balancing' })).toHaveCount(0);
   });
 
   test('copies the tokens', async ({ page, context }) => {
     await context.grantPermissions(['clipboard-read', 'clipboard-write']);
-    await open(page);
-    await create(page).click();
+    await suggestAndKeep(page);
     await page.getByRole('button', { name: 'Copy', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Copied', exact: true })).toBeVisible();
     expect(await page.evaluate(() => navigator.clipboard.readText())).toContain(':root {');
   });
 
-  test('copies one value by clicking its swatch', async ({ page, context }) => {
+  test('copies one value from its swatch', async ({ page, context }) => {
     await context.grantPermissions(['clipboard-read', 'clipboard-write']);
-    await open(page);
-    await create(page).click();
-    await page.getByRole('button', { name: 'Copy color 1 500 value' }).click();
-    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('oklch(63% 0.05 260)');
-    await expect(page.getByRole('button', { name: 'Copied color 1 500' })).toBeVisible();
+    await suggestAndKeep(page);
+    await page.getByRole('button', { name: 'Copy sand 1 500 value' }).click();
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toMatch(/^oklch\(/);
+    await expect(page.getByRole('button', { name: 'Copied sand 1 500' })).toBeVisible();
   });
 
   test('shows only the step on each swatch, with details in a popover', async ({ page }) => {
-    await open(page);
-    await create(page).click();
+    await suggestAndKeep(page);
     await expect(page.locator('.swatch').nth(5)).toHaveText('500');
-    await page.getByRole('button', { name: 'Details for color 1 500' }).click();
-    const details = page.getByRole('group', { name: 'color 1 500 details' });
-    await expect(details).toContainText('oklch(63% 0.05 260)');
-    await expect(details).toContainText('--color-color-1-500');
+    await page.getByRole('button', { name: 'Details for sand 1 500' }).click();
+    const details = page.getByRole('group', { name: 'sand 1 500 details' });
+    await expect(details).toContainText('--color-sand-1-500');
     await expect(details).toContainText(/White text\s*\d+\.\d\d:1 (AAA|AA|AA large|fails)/);
     await expect(details).toContainText(/Black text\s*\d+\.\d\d:1 (AAA|AA|AA large|fails)/);
   });
 
   test('opens and closes swatch details with the keyboard', async ({ page }) => {
-    await open(page);
-    await create(page).click();
-    const trigger = page.getByRole('button', { name: 'Details for color 1 500' });
+    await suggestAndKeep(page);
+    const trigger = page.getByRole('button', { name: 'Details for sand 1 500' });
     await trigger.focus();
     await page.keyboard.press('Enter');
-    await expect(page.getByRole('group', { name: 'color 1 500 details' })).toBeVisible();
+    await expect(page.getByRole('group', { name: 'sand 1 500 details' })).toBeVisible();
     await expect(trigger).toHaveAttribute('aria-expanded', 'true');
     await page.keyboard.press('Escape');
-    await expect(page.getByRole('group', { name: 'color 1 500 details' })).toBeHidden();
+    await expect(page.getByRole('group', { name: 'sand 1 500 details' })).toBeHidden();
     await expect(trigger).toHaveAttribute('aria-expanded', 'false');
   });
 
   test('copies a token name from the swatch details', async ({ page, context }) => {
     await context.grantPermissions(['clipboard-read', 'clipboard-write']);
-    await open(page);
-    await create(page).click();
-    await page.getByRole('button', { name: 'Details for color 1 50' , exact: true }).click();
+    await suggestAndKeep(page);
+    await page.getByRole('button', { name: 'Details for sand 1 50', exact: true }).click();
     await page.getByRole('button', { name: 'Copy token name' }).click();
-    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('--color-color-1-50');
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('--color-sand-1-50');
   });
 
-  test('switches format and color system without asking the agent again', async ({ page }) => {
-    await open(page);
-    await create(page).click();
-    await expect(page.getByText('Created 1 palette with Fake Large.')).toBeVisible();
+  test('switches format and color system without asking the agent', async ({ page }) => {
+    await suggestAndKeep(page);
     let requests = 0;
     page.on('request', (r) => {
       if (r.url().includes('/api/')) requests++;
@@ -279,112 +340,35 @@ test.describe('generator form', () => {
     await choose(page, 'Show tokens as', 'Tailwind CSS v4');
     await choose(page, 'in', 'hex');
     await expect(page.locator('pre code')).toContainText('@theme {');
-    await expect(page.locator('pre code')).toContainText(/--color-color-1-500: #[0-9a-f]{6};/);
-    await page.getByRole('button', { name: 'Details for color 1 500' }).click();
-    const details = page.getByRole('group', { name: 'color 1 500 details' });
-    await expect(details).toContainText(/hex\s*#[0-9a-f]{6}/);
-    await expect(details).toContainText('--color-color-1-500');
+    await expect(page.locator('pre code')).toContainText(/--color-sand-1-500: #[0-9a-f]{6};/);
     expect(requests).toBe(0);
   });
 
   test('downloads the tokens', async ({ page }) => {
-    await open(page);
-    await create(page).click();
+    await suggestAndKeep(page);
     const download = page.waitForEvent('download');
     await page.getByRole('button', { name: 'Download .css' }).click();
-    expect((await download).suggestedFilename()).toBe('palette-monochromatic.css');
+    expect((await download).suggestedFilename()).toBe('palette-suggested.css');
   });
 
   test('previews the palette in light and dark', async ({ page }) => {
-    await open(page);
-    await create(page).click();
+    await suggestAndKeep(page);
     await page.getByRole('tab', { name: 'Preview' }).click();
     await expect(page.getByRole('region', { name: 'Light preview' })).toBeVisible();
     await expect(page.getByRole('region', { name: 'Dark preview' })).toBeVisible();
   });
 
   test('shows a contrast matrix, and the tabs work with arrow keys', async ({ page }) => {
-    await open(page);
-    await create(page).click();
+    await suggestAndKeep(page);
     await page.getByRole('tab', { name: 'Tokens' }).focus();
     await page.keyboard.press('ArrowRight');
     await page.keyboard.press('ArrowRight');
     await expect(page.getByRole('tab', { name: 'Contrast' })).toHaveAttribute('aria-selected', 'true');
     await expect(page.getByRole('tab', { name: 'Contrast' })).toBeFocused();
+    // One pair of colors at a time: 11 steps by 11.
     await expect(page.locator('td')).toHaveCount(121);
     // The caption is for screen readers only.
     await expect(page.locator('caption')).toHaveCSS('position', 'absolute');
-    await expect(page.locator('caption')).toHaveCSS('width', '1px');
-    await expect(page.locator('td').first()).toHaveAttribute('title', /color 1 50 on color 1 50: 1\.00:1, Fails/);
-  });
-
-  test('refines one palette with a note', async ({ page }) => {
-    await open(page);
-    await section(page, 'Schemes').click();
-    await page.getByLabel('Triadic').check();
-    await create(page).click();
-    await expect(page.getByText('Created 2 palettes with Fake Large.')).toBeVisible();
-
-    const triadic = page.locator('article', { has: page.getByRole('heading', { name: 'Triadic', exact: true }) });
-    await triadic.getByRole('button', { name: 'Refine…' }).click();
-    await triadic.getByLabel('What should change?').fill('warmer please');
-    await triadic.getByRole('button', { name: 'Refine', exact: true }).click();
-    await expect(triadic.getByText('Refined: warmer please')).toBeVisible();
-    await expect(page.locator('article', { has: page.getByRole('heading', { name: 'Monochromatic', exact: true }) })).toContainText('A fake palette.');
-  });
-
-  test('regenerates one palette', async ({ page }) => {
-    await open(page);
-    await create(page).click();
-    await page.getByRole('button', { name: 'Regenerate' }).click();
-    await expect(page.getByText('A different take.')).toBeVisible();
-  });
-
-  test('starts again when the refine session has closed', async ({ page }) => {
-    await open(page);
-    await page.getByLabel('Mood').fill('calm');
-    await create(page).click();
-    await expect(page.getByText('Created 1 palette with Fake Large.')).toBeVisible();
-
-    await page.route('**/api/palettes/refine', (route) =>
-      route.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ code: 'session_expired', error: 'Closed.' }) }),
-    );
-    const retry = page.waitForRequest((r) => r.url().endsWith('/api/palettes') && r.method() === 'POST');
-    await page.getByRole('button', { name: 'Refine…' }).click();
-    await page.getByLabel('What should change?').fill('brighter');
-    await page.getByRole('button', { name: 'Refine', exact: true }).click();
-    expect((await retry).postDataJSON()).toMatchObject({ schemes: ['monochromatic'], mood: 'calm', note: 'brighter' });
-    await expect(page.getByRole('alert')).toHaveCount(0);
-  });
-
-  test('ignores a refinement that finishes after a new generation started', async ({ page }) => {
-    await open(page);
-    await create(page).click();
-    await expect(page.getByText('Created 1 palette with Fake Large.')).toBeVisible();
-
-    // Hold the refinement's response until the new generation has finished.
-    let release: () => void = () => {};
-    const held = new Promise<void>((resolve) => (release = resolve));
-    await page.route('**/api/palettes/refine', async (route) => {
-      const response = await route.fetch();
-      const body = await response.text();
-      await held;
-      await route.fulfill({ response, body }).catch(() => {});
-    });
-    await page.getByRole('button', { name: 'Regenerate' }).click();
-    await create(page).click();
-    await expect(page.getByText('Created 1 palette with Fake Large.')).toBeVisible();
-    release();
-    await page.waitForTimeout(300);
-    await expect(page.getByText('A different take.')).toHaveCount(0);
-    await expect(page.getByText('A fake palette.')).toBeVisible();
-  });
-
-  test('fits a phone screen without sideways scrolling', async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 844 });
-    await open(page);
-    await create(page).click();
-    await expect(page.getByText('Created 1 palette with Fake Large.')).toBeVisible();
-    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+    await expect(page.locator('td').first()).toHaveAttribute('title', /your color 1 50 on your color 1 50: 1\.00:1, Fails/);
   });
 });
