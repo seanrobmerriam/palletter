@@ -57,7 +57,9 @@
     error?: Failure;
     controller?: AbortController;
   };
-  type SentRequest = PaletteRequestInput & { agent?: string };
+  type SentRequest = PaletteRequestInput & { agent?: string; model?: string };
+  type ModelChoice = { value: string; name: string; description?: string };
+  type ModelOptions = { current: string; choices: ModelChoice[] };
 
   const id = $props.id();
 
@@ -68,6 +70,9 @@
 
   let agents = $state<Agent[]>([]);
   let agentId = $state('');
+  /** The models the chosen agent offers, if it lets the user pick one. */
+  let models = $state<ModelOptions | null>(null);
+  let modelId = $state('');
   let agentStatus = $state<{ state: 'loading' | 'checking' | 'ready' | 'error'; message?: string }>({ state: 'loading' });
 
   let running = $state(false);
@@ -137,6 +142,16 @@
 
   const PATTERN_PRESETS = ['--color-[name]-[step]', '--brand-[color]-[step]', '--color-[mood]-[step]', '--color-[role]-[step]'];
 
+  const modelItems = $derived(
+    (models?.choices ?? []).map((m) => ({ value: m.value, label: m.name, ...(m.description ? { description: m.description } : {}) })),
+  );
+  /** A short name for the chosen model, e.g. "Sonnet 5.5", or "Opus 5.5" for the default. */
+  function modelName(value: string | undefined): string | undefined {
+    const choice = models?.choices.find((m) => m.value === value);
+    if (!choice) return undefined;
+    return choice.value === 'default' && choice.description ? choice.description : choice.name;
+  }
+
   const agentItems = $derived(
     agents.map((a) => ({ value: a.id, label: a.label, disabled: !a.available, ...(a.unavailableReason ? { description: a.unavailableReason } : {}) })),
   );
@@ -171,11 +186,17 @@
   async function checkAgent() {
     const checking = agentId;
     agentStatus = { state: 'checking', message: 'Connecting…' };
+    models = null;
+    modelId = '';
     try {
       const response = await fetch(`/api/agent?check=${encodeURIComponent(checking)}`);
-      const body = (await response.json()) as { check: { ok: boolean; message?: string } };
+      const body = (await response.json()) as { check: { ok: boolean; message?: string; models?: ModelOptions } };
       if (checking !== agentId) return;
       agentStatus = body.check.ok ? { state: 'ready', message: 'Ready' } : { state: 'error', message: body.check.message };
+      if (body.check.models?.choices.length) {
+        models = body.check.models;
+        modelId = body.check.models.current;
+      }
     } catch {
       if (checking === agentId) agentStatus = { state: 'error', message: 'Could not reach the Palletter server.' };
     }
@@ -232,7 +253,9 @@
       return;
     }
     errors = {};
-    await generate({ ...result.input, ...(agentId ? { agent: agentId } : {}) });
+    // Only send a model the user changed, so the agent's own default stays the default.
+    const model = models && modelId && modelId !== models.current ? modelId : undefined;
+    await generate({ ...result.input, ...(agentId ? { agent: agentId } : {}), ...(model ? { model } : {}) });
   }
 
   /** Apply one stream event to the results. `scheme` limits palette events to one card. */
@@ -285,7 +308,10 @@
     try {
       const result = await postForEvents('/api/palettes', body, controller.signal, (event) => {
         applyEvent(event, (message) => (status = message));
-        if (event.type === 'done') status = `Created ${results.length} ${results.length === 1 ? 'palette' : 'palettes'}.`;
+        if (event.type === 'done') {
+          const name = modelName(body.model ?? models?.current);
+          status = `Created ${results.length} ${results.length === 1 ? 'palette' : 'palettes'}${name ? ` with ${name}` : ''}.`;
+        }
         else if (event.type === 'error') {
           failure = { code: event.code, message: event.message, detail: event.detail };
           status = '';
@@ -355,18 +381,9 @@
 <div class="grid gap-6 lg:grid-cols-[minmax(24rem,2fr)_3fr] lg:items-start" data-hydrated={hydrated}>
   <Card class="min-w-0 lg:sticky lg:top-4" ui={{ body: 'p-0 sm:p-0' }}>
     <form id="{id}-form" class="grid gap-5 p-4 sm:p-6" aria-labelledby="{id}-inputs-heading" onsubmit={submit} novalidate>
-      <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        <h2 id="{id}-inputs-heading" class="text-lg font-semibold">Describe your palette</h2>
-        <div class="flex items-center gap-2">
-          <Select
-            items={agentItems}
-            bind:value={agentId}
-            size="sm"
-            aria-label="Agent"
-            disabled={running || agents.length === 0}
-            placeholder="Loading agents…"
-            class="min-w-40"
-          />
+      <div class="grid gap-3">
+        <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+          <h2 id="{id}-inputs-heading" class="text-lg font-semibold">Describe your palette</h2>
           <span class="agent-status flex items-center gap-1.5 text-sm" data-state={agentStatus.state} role="status">
             <span
               class="size-2 rounded-full {agentStatus.state === 'ready'
@@ -380,6 +397,20 @@
               {agentStatus.state === 'loading' ? 'Loading agents…' : agentStatus.message}
             </span>
           </span>
+        </div>
+        <div class="grid gap-2 sm:grid-cols-2">
+          <Select
+            items={agentItems}
+            bind:value={agentId}
+            size="sm"
+            aria-label="Agent"
+            disabled={running || agents.length === 0}
+            placeholder="Loading agents…"
+            class="w-full"
+          />
+          {#if models}
+            <Select items={modelItems} bind:value={modelId} size="sm" aria-label="Model" disabled={running} class="w-full" />
+          {/if}
         </div>
       </div>
 

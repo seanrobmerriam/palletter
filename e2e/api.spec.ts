@@ -26,6 +26,18 @@ test.describe('GET /api/agent', () => {
     expect(body.check).toMatchObject({ id: 'custom', ok: true, agentInfo: { name: 'fake-agent' } });
   });
 
+  test('lists the models of an agent that offers them', async ({ request }) => {
+    const body = await (await request.get('/api/agent?check=custom')).json();
+    expect(body.check.models).toEqual({
+      current: 'default',
+      choices: [
+        { value: 'default', name: 'Default (recommended)', description: 'Fake Large' },
+        { value: 'fake-large', name: 'Fake Large', description: 'Slow and careful' },
+        { value: 'fake-small', name: 'Fake Small', description: 'Quick' },
+      ],
+    });
+  });
+
   test('reports an agent that is not set up', async ({ request }) => {
     const body = await (await request.get('/api/agent?check=minimax')).json();
     expect(body.check).toMatchObject({ ok: false, code: 'not_configured' });
@@ -46,6 +58,18 @@ test.describe('POST /api/palettes', () => {
     expect(palettes.map((p) => p.palette.scheme)).toEqual(['analogous', 'complementary']);
     expect(palettes[0]!.tokens).toMatch(/^:root \{\n {2}--color-color-1-50: #[0-9a-f]{6};/);
     expect(received.at(-1)).toEqual({ type: 'done' });
+  });
+
+  test('uses the chosen model', async ({ request }) => {
+    const response = await request.post('/api/palettes', { data: { hues: [{ value: '#2563eb' }], model: 'fake-small' } });
+    const palette = events(await response.text()).find((e) => e.type === 'palette') as Event & { palette: { rationale: string } };
+    expect(palette.palette.rationale).toBe('A fake palette from fake-small.');
+  });
+
+  test('reports a model the agent does not offer', async ({ request }) => {
+    const response = await request.post('/api/palettes', { data: { hues: [{ value: '#2563eb' }], model: 'gpt-nope' } });
+    const received = events(await response.text());
+    expect(received.at(-1)).toMatchObject({ type: 'error', code: 'model_unavailable', message: expect.stringContaining('"gpt-nope"') });
   });
 
   test('streams the character schemes', async ({ request }) => {

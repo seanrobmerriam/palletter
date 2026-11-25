@@ -8,6 +8,7 @@ export type AgentErrorCode =
   | 'timeout'
   | 'cancelled'
   | 'invalid_response'
+  | 'model_unavailable'
   | 'format';
 
 export class AgentError extends Error {

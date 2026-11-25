@@ -21,6 +21,11 @@ export type AgentProfile = {
   env: Record<string, string | null>;
   /** Extra `session/new` metadata for this agent. */
   sessionMeta?: Record<string, unknown>;
+  /**
+   * Whether the user may pick a model, from the ones the agent offers. Off for MiniMax, which
+   * maps every Claude model name to the MiniMax model.
+   */
+  chooseModel: boolean;
 };
 
 export type Env = Record<string, string | undefined>;
@@ -81,6 +86,7 @@ export function agentProfiles(env: Env): AgentProfile[] {
       ...claudeAdapter,
       env: {},
       sessionMeta: CLAUDE_SESSION_META,
+      chooseModel: true,
     },
     {
       id: 'minimax',
@@ -99,6 +105,7 @@ export function agentProfiles(env: Env): AgentProfile[] {
         ANTHROPIC_DEFAULT_HAIKU_MODEL: minimaxModel,
       },
       sessionMeta: CLAUDE_SESSION_META,
+      chooseModel: false,
     },
     {
       id: 'custom',
@@ -108,6 +115,7 @@ export function agentProfiles(env: Env): AgentProfile[] {
       command: customWords[0] ?? '',
       args: customWords.slice(1),
       env: {},
+      chooseModel: true,
     },
   ];
 }

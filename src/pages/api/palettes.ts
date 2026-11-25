@@ -1,5 +1,5 @@
 /**
- * POST a PaletteRequest (plus an optional `agent`). Responds with server-sent events:
+ * POST a PaletteRequest (plus an optional `agent`, and a `model` from that agent's models). Responds with server-sent events:
  * `status`, `warning`, `palette` (one per scheme), `session` (an id for refinements), then
  * `done` or `error`.
  */
@@ -16,6 +16,7 @@ export const prerender = false;
 
 const BodySchema = PaletteRequestSchema.extend({
   agent: z.enum(['claude', 'minimax', 'custom']).optional(),
+  model: z.string().trim().min(1).max(100).optional(),
 });
 
 export const POST: APIRoute = async ({ request }) => {
@@ -34,13 +35,19 @@ export const POST: APIRoute = async ({ request }) => {
     });
   }
 
-  const { agent, ...paletteRequest } = parsed.data;
+  const { agent, model, ...paletteRequest } = parsed.data;
   const env = serverEnv();
   const profile = getProfile(agent, env);
+  if (model && !profile.chooseModel) {
+    return jsonResponse(400, {
+      error: 'The palette request is not valid.',
+      issues: [{ path: 'model', message: `${profile.label} doesn't let you choose a model.` }],
+    });
+  }
 
   return eventStreamResponse(request, (emit, signal) =>
     generatePalettes(paletteRequest, {
-      openSession: () => getAgentProcess(profile).newSession(),
+      openSession: () => getAgentProcess(profile).newSession(model ? { model } : {}),
       retainSession: (session, req) => sessions.add(session, req),
       timeoutMs: agentTimeoutMs(env),
       signal,

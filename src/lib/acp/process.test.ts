@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { fakeAgentProfile } from '../../../test/agent';
 import { agentProfiles } from './agents';
 import { AgentError } from './errors';
-import { AgentProcess, type PromptProgress } from './process';
+import { AgentProcess, modelOptionFrom, type PromptProgress } from './process';
 
 const processes: AgentProcess[] = [];
 const start = (profile = fakeAgentProfile()) => {
@@ -102,5 +102,46 @@ describe('AgentProcess', () => {
   it('reports a process that exits before initializing', async () => {
     const error = await rejection(start(fakeAgentProfile('bun -e "process.exit(2)"')).start());
     expect(error.code).toBe('crashed');
+  });
+});
+
+describe('models', () => {
+  it('reads the model option, flattening groups', () => {
+    expect(
+      modelOptionFrom([
+        { id: 'mode', name: 'Mode', type: 'select', currentValue: 'a', options: [{ value: 'a', name: 'A' }] },
+        {
+          id: 'model',
+          name: 'Model',
+          category: 'model',
+          type: 'select',
+          currentValue: 'big',
+          options: [
+            { group: 'new', name: 'New', options: [{ value: 'big', name: 'Big', description: 'Careful' }] },
+            { group: 'old', name: 'Old', options: [{ value: 'small', name: 'Small' }] },
+          ],
+        },
+      ]),
+    ).toEqual({ current: 'big', choices: [{ value: 'big', name: 'Big', description: 'Careful' }, { value: 'small', name: 'Small' }] });
+    expect(modelOptionFrom(undefined)).toBeUndefined();
+  });
+
+  it('lists the models the agent offers', async () => {
+    const models = await start().models();
+    expect(models?.current).toBe('default');
+    expect(models?.choices.map((c) => c.value)).toEqual(['default', 'fake-large', 'fake-small']);
+  });
+
+  it('opens a session with the chosen model', async () => {
+    const session = await start().newSession({ model: 'fake-small' });
+    expect(await session.prompt(PROMPT, opts)).toContain('A fake palette from fake-small.');
+    session.close();
+  });
+
+  it('refuses a model the agent does not offer', async () => {
+    const error = await rejection(start().newSession({ model: 'gpt-nope' }));
+    expect(error.code).toBe('model_unavailable');
+    expect(error.message).toContain('"gpt-nope"');
+    expect(error.detail).toContain('fake-small');
   });
 });
