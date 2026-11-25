@@ -8,6 +8,7 @@
   import type { ColorSystem, ModelPalette, TokenFormat } from '../lib/prompt/schema';
   import ContrastMatrix from './ContrastMatrix.svelte';
   import PalettePreview from './PalettePreview.svelte';
+  import Swatch from './Swatch.svelte';
 
   type Props = {
     source: ModelPalette;
@@ -96,10 +97,7 @@
     note = '';
   }
 
-  const LEVEL_LABELS = { AAA: 'AAA', AA: 'AA', 'AA-large': 'AA large', fail: 'low' } as const;
 
-  /** "oklch(54.6% 0.215 262.9)" → "54.6% 0.215 262.9", which wraps to fit a narrow swatch. */
-  const compact = (value: string) => value.replace(/^[a-z]+\(|\)$/g, '');
 </script>
 <article class="palette grid min-w-0 gap-4 border-t border-outline-variant pt-4" class:busy aria-labelledby="{id}-title" aria-busy={busy}>
   <header class="grid min-w-0 gap-2">
@@ -107,15 +105,12 @@
       <h3 id="{id}-title" class="text-base font-semibold">{SCHEME_LABELS[palette.scheme]}</h3>
       <div class="flex gap-2">
         {#if busy}
-          <Button label="Cancel" size="sm" variant="outline" color="surface" onclick={onCancel} />
+          <Button label="Cancel" onclick={onCancel} />
         {:else}
-          <Button label="Regenerate" leadingIcon="lucide:refresh-cw" size="sm" variant="outline" color="surface" onclick={onRegenerate} />
+          <Button label="Regenerate" leadingIcon="lucide:refresh-cw" onclick={onRegenerate} />
           <Button
             label="Refine…"
             leadingIcon="lucide:wand-sparkles"
-            size="sm"
-            variant="outline"
-            color="surface"
             onclick={startRefine}
             aria-expanded={refining}
           />
@@ -128,7 +123,7 @@
       </p>
     {/if}
     {#if error}
-      <Alert color="error" variant="soft" icon="lucide:circle-alert" title={error.message} role="alert">
+      <Alert color="error" icon="lucide:circle-alert" title={error.message} role="alert">
         {#snippet descriptionSlot()}
           {#if error?.detail}
             <details>
@@ -147,10 +142,9 @@
           placeholder="e.g. make the secondary warmer"
           aria-label="What should change?"
           maxlength={500}
-          class="flex-1"
         />
         <Button type="submit" label="Refine" disabled={!note.trim()} />
-        <Button label="Close" variant="ghost" color="surface" onclick={() => (refining = false)} />
+        <Button label="Close" onclick={() => (refining = false)} />
       </form>
     {/if}
     {#if palette.rationale}<p class="rationale text-on-surface-variant">{palette.rationale}</p>{/if}
@@ -166,9 +160,6 @@
         </p>
         <Button
           label={showOriginal ? 'Show balanced' : "Show the agent's original"}
-          variant="soft"
-          color="surface"
-          size="xs"
           aria-pressed={showOriginal}
           onclick={() => (showOriginal = !showOriginal)}
         />
@@ -184,60 +175,37 @@
   {#each palette.colors as color (color.name)}
     <section class="color min-w-0" aria-label={color.label}>
       <h4 class="mb-2 flex items-center gap-2 text-sm font-semibold">
-        {color.label}{#if color.role}<Badge label={color.role} variant="soft" color="surface" size="sm" />{/if}
+        {color.label}{#if color.role}<Badge label={color.role} />{/if}
       </h4>
       <ul class="swatches">
         {#each color.swatches as swatch (swatch.step)}
-          {@const key = `${color.name}-${swatch.step}`}
-          <li>
-            <button
-              type="button"
-              class="swatch"
-              class:copied={copied === key}
-              style:background={swatch.hex}
-              style:color={swatch.text.text === 'white' ? '#fff' : '#000'}
-              onclick={() => copy(swatch.display, key)}
-              aria-label="{color.label} {swatch.step}: {swatch.display}{swatch.gamutMapped ? ', adjusted to fit sRGB' : ''}. {swatch.text.text === 'white' ? 'White' : 'Black'} text {swatch.text.ratio.toFixed(1)} to 1, {LEVEL_LABELS[swatch.text.level]}. Copy value."
-            >
-              <span class="font-semibold">{swatch.step}{#if swatch.gamutMapped}<span aria-hidden="true">*</span>{/if}</span>
-              <span class="value">{copied === key ? 'Copied' : compact(swatch.display)}</span>
-              <span class="badge" data-level={swatch.text.level} aria-hidden="true">
-                {swatch.text.ratio.toFixed(1)} {LEVEL_LABELS[swatch.text.level]}
-              </span>
-            </button>
-          </li>
+          <Swatch {color} {swatch} {system} {format} {namingPattern} />
         {/each}
       </ul>
     </section>
   {/each}
 
   <p class="text-sm text-on-surface-variant">
-    Hover a swatch to see its value and the contrast of its text, and click to copy the value.
+    Use <span class="sr-only">the details button</span><span aria-hidden="true">ⓘ</span> for a swatch's values and contrast, and the copy button to copy its value.
     {#if adjusted}* Adjusted to fit the sRGB colors most screens can show.{/if}
   </p>
 
-  <Tabs items={TABS} defaultValue="tokens" variant="link" aria-label="{SCHEME_LABELS[palette.scheme]} details" class="min-w-0" ui={{ content: 'pt-4 min-w-0' }}>
+  <Tabs items={TABS} defaultValue="tokens" aria-label="{SCHEME_LABELS[palette.scheme]} details" >
     {#snippet body({ item })}
       {#if item.value === 'tokens'}
         {#if formatted.error}
-          <Alert color="error" variant="soft" icon="lucide:circle-alert" title={formatted.error} role="alert" />
+          <Alert color="error" icon="lucide:circle-alert" title={formatted.error} role="alert" />
         {:else}
           <div class="tokens overflow-hidden rounded-md border border-outline-variant">
             <div class="flex justify-end gap-2 border-b border-outline-variant px-3 py-2">
               <Button
                 label={copied === 'all' ? 'Copied' : 'Copy'}
                 leadingIcon="lucide:copy"
-                size="xs"
-                variant="outline"
-                color="surface"
                 onclick={() => copy(formatted.tokens!, 'all')}
               />
               <Button
                 label="Download .{FORMAT_EXTENSIONS[format]}"
                 leadingIcon="lucide:download"
-                size="xs"
-                variant="outline"
-                color="surface"
                 onclick={download}
               />
             </div>
@@ -286,60 +254,11 @@
     }
   }
 
-  .swatch {
-    display: grid;
-    align-content: space-between;
-    justify-items: start;
-    gap: 0.5rem;
-    width: 100%;
-    height: 100%;
-    min-height: 5.5rem;
-    padding: 0.5rem;
-    border: none;
-    font-size: 0.75rem;
-    text-align: left;
-    overflow: hidden;
-    cursor: pointer;
-  }
 
-  /* Show only the step until a swatch is hovered, focused or just copied.
-     Touch screens can't hover, so they keep every detail visible. */
-  @media (hover: hover) {
-    .swatch:not(:hover, :focus-visible, .copied) :is(.value, .badge) {
-      opacity: 0;
-    }
-  }
 
-  .swatch:hover {
-    box-shadow: inset 0 0 0 2px currentColor;
-  }
 
-  .swatch:focus-visible {
-    outline: 2px solid var(--color-primary);
-    outline-offset: -4px;
-  }
 
-  .value {
-    font-family: ui-monospace, monospace;
-    font-size: 0.625rem;
-    overflow-wrap: break-word;
-    opacity: 0.85;
-  }
 
-  .badge {
-    font-size: 0.625rem;
-    font-weight: 600;
-    padding: 0 0.3em;
-    border-radius: 3px;
-    border: 1px solid currentColor;
-    white-space: nowrap;
-  }
-
-  .badge[data-level='fail'],
-  .badge[data-level='AA-large'] {
-    border-style: dashed;
-    opacity: 0.8;
-  }
 
   .spinner {
     width: 0.875rem;

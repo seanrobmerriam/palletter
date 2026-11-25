@@ -4,4 +4,4 @@
 </script>
 
 <ThemeMode />
-<ThemeModeButton variant="ghost" color="surface" aria-label="Switch between light and dark" />
+<ThemeModeButton aria-label="Switch between light and dark" />
