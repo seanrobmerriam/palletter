@@ -1,6 +1,6 @@
 # Palletter: Color Palette Generator for the Web
 
-<img src="docs/images/built-with-claude.svg" alt="Built with Claude" height="40">
+<img src="docs/images/built-with-claude.png" alt="Built with Claude" height="40">
 
 Palletter is a web application for generating color palettes for use on the web. Choose a base color, the relationship you want the colors to have, and any other rules or constraints you want on the palette. Palletter will give you a set of tokens along with their color values that you can copy and paste into your CSS.
 
