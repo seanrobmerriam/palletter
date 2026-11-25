@@ -1,8 +1,14 @@
 # Palletter: Color Palette Generator for the Web
 
+<img src="docs/images/built-with-claude.svg" alt="Built with Claude" height="40">
+
 Palletter is a web application for generating color palettes for use on the web. Choose a base color, the relationship you want the colors to have, and any other rules or constraints you want on the palette. Palletter will give you a set of tokens along with their color values that you can copy and paste into your CSS.
 
 > **Status:** in development. The generator works end to end: fill in the form, and your agent creates palettes you can copy. Saving and sharing palettes is next. See [PLAN.md](./PLAN.md) for the plan and milestones.
+
+![Palletter with three hues (mint, aqua, and bronze) and the mood "Tropical, calm, but vivid." The Palettes panel shows a monochromatic palette with a full 50–950 scale for each color, the agent's rationale, a note on what balancing changed, and a contrast badge on every swatch.](docs/images/palettes.png)
+
+![The same request as a Functional UI palette: the three brand colors plus a tinted neutral and success, warning, danger, and info scales tuned to the mint primary.](docs/images/functional-ui.png)
 
 ## How it works
 
