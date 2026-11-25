@@ -5,8 +5,7 @@
   let { palette }: { palette: ResolvedPalette } = $props();
 
   const themes = $derived(previewThemes(palette));
-  const primaryName = $derived(palette.colors[0]?.label ?? '');
-  const accentName = $derived(palette.colors[1]?.label ?? primaryName);
+  const uses = $derived(themes.uses);
   const fallbacks = $derived([...new Set([...themes.light.fallbacks, ...themes.dark.fallbacks])]);
 </script>
 
@@ -20,7 +19,7 @@
           Plan, build, and launch with your team. <a href="#preview" onclick={(e) => e.preventDefault()}>Read the guide</a>
           to get started.
         </p>
-        <div class="alert">New: {accentName} is your accent color.</div>
+        <div class="alert">New: {uses.accent} is your accent color.</div>
         <div class="buttons">
           <span class="button primary">Get started</span>
           <span class="button outline">Learn more</span>
@@ -31,7 +30,11 @@
   {/each}
 </div>
 <p class="note">
-  {primaryName} drives the page, buttons, and text{#if palette.colors.length > 1}; {accentName} is the accent{/if}.
+  {#if uses.neutral === uses.action && uses.text === uses.action}
+    {uses.action} drives the page, buttons, and text{#if uses.accent !== uses.action}; {uses.accent} is the accent{/if}.
+  {:else}
+    {uses.neutral} for the page, {uses.text} for text, {uses.action} for buttons and links{#if uses.accent !== uses.action}, and {uses.accent} for accents{/if}.
+  {/if}
   {#if fallbacks.length}
     No step was readable for {fallbacks.join(', ')}, so the preview uses black or white there.
   {/if}
@@ -86,6 +89,7 @@
     border-radius: var(--radius-md, 0.375rem);
     background: var(--p-accent-soft);
     color: var(--p-on-accent-soft);
+    border-left: 3px solid var(--p-accent);
     font-size: 0.8125rem;
   }
 
