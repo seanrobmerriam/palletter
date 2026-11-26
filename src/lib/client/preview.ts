@@ -27,7 +27,9 @@ export type PreviewTheme = { colors: Record<PreviewRole, string>; fallbacks: Pre
 /** Which palette color the preview uses for each part, by label. */
 export type PreviewUses = { neutral: string; text: string; action: string; accent: string };
 
-const BACKGROUND_ROLE = /\b(background|surface|canvas|paper|neutral|base)\b/i;
+/** Roles for the page itself. These win over surface roles, e.g. "background" over "surface tint". */
+const PAGE_ROLE = /\b(background|canvas|page|paper)\b/i;
+const BACKGROUND_ROLE = /\b(background|surface|canvas|page|paper|neutral|base)\b/i;
 const TEXT_ROLE = /\b(text|ink|body|heading|foreground)\b/i;
 const ACTION_ROLE = /\b(primary|call to action|cta|button|action|brand|link)\b/i;
 const ACCENT_ROLE = /\b(accent|highlight|pop|badge)\b/i;
@@ -38,7 +40,7 @@ const SUPPORT_ROLE = /\b(secondary|tertiary|support)\b/i;
 export function previewColors(palette: ResolvedPalette): Record<keyof PreviewUses, ResolvedColor> {
   const colors = palette.colors;
   const withRole = (re: RegExp, skip: ResolvedColor[] = []) => colors.find((c) => c.role && re.test(c.role) && !skip.includes(c));
-  const neutral = withRole(BACKGROUND_ROLE) ?? colors[0]!;
+  const neutral = withRole(PAGE_ROLE) ?? withRole(BACKGROUND_ROLE) ?? colors[0]!;
   const text = withRole(TEXT_ROLE, [neutral]) ?? neutral;
   const special = [neutral, text].filter((c) => c.role && (BACKGROUND_ROLE.test(c.role) || TEXT_ROLE.test(c.role)));
   // A color named as the accent stays the accent, so settle it before the buttons' fallback.
