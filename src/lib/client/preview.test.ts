@@ -145,3 +145,29 @@ describe('previewColors with an explicit accent and no action role', () => {
     expect(previewThemes(resolvePalette(palette, 'hex')).uses).toMatchObject({ accent: 'coral', action: 'aqua' });
   });
 });
+
+describe('previewColors with a surface listed before the background', () => {
+  // Roles from a real suggestion: the user's aqua became a "surface tint", listed before the sand background.
+  const steps = (hue: number, chroma: number) => ({ '100': `oklch(94% ${chroma / 4} ${hue})`, '500': `oklch(63% ${chroma} ${hue})`, '900': `oklch(37% ${chroma / 2} ${hue})` });
+  const palette: ModelPalette = {
+    scheme: 'suggested',
+    rationale: '',
+    colors: [
+      { name: 'lagoon mint', role: 'highlight', steps: steps(152, 0.14) },
+      { name: 'sea glass', role: 'surface tint', steps: steps(200, 0.1) },
+      { name: 'driftwood', role: 'secondary accent', steps: steps(67, 0.1) },
+      { name: 'warm sand', role: 'background', steps: steps(85, 0.015) },
+      { name: 'deep lagoon', role: 'text', steps: steps(200, 0.04) },
+      { name: 'reef teal', role: 'call to action', steps: steps(190, 0.11) },
+    ],
+  };
+
+  it('uses the background for the page, not the surface', () => {
+    expect(previewThemes(resolvePalette(palette, 'hex')).uses).toEqual({
+      neutral: 'warm sand',
+      text: 'deep lagoon',
+      action: 'reef teal',
+      accent: 'lagoon mint',
+    });
+  });
+});

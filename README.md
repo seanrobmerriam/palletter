@@ -6,9 +6,9 @@ Palletter is a web application for building color palettes for the web. Enter co
 
 > **Status:** in development. Suggesting, curating, and building palettes works end to end. Saving and sharing palettes is next. See [PLAN.md](./PLAN.md) for the plan and milestones.
 
-![Palletter with three hues (mint, aqua, and bronze) and the mood "Tropical, calm, but vivid." The Palettes panel shows a monochromatic palette with a full 50–950 scale for each color, the agent's rationale, a note on what balancing changed, and a contrast badge on every swatch.](docs/images/palettes.png)
+![Palletter with three colors (mint, aqua, and bronze) and "Tropical, calm, but vivid." Claude Code suggests two directions. The first, "Shallows & driftwood", adds a warm sand background, deep lagoon text, a reef teal call to action, and a wet sand border, each with a reason, a Keep checkbox, and More like this.](docs/images/suggestions.png)
 
-![The same request as a Functional UI palette: the three brand colors plus a tinted neutral and success, warning, danger, and info scales tuned to the mint primary.](docs/images/functional-ui.png)
+![The palette built from the first direction: a 50–950 scale for each of the seven colors with its role, a note on what balancing changed, and the Preview tab, where warm sand is the page, deep lagoon the text, reef teal the buttons, and lagoon mint the accent, in light and dark.](docs/images/palette.png)
 
 ## How it works
 
@@ -52,6 +52,16 @@ Everything else is under **Advanced options**, and all of it is optional:
 
 Scale, token format, and color system only affect how the palette is built and exported, so changing them never asks the agent again.
 
+## Your palette
+
+Your palette has one row of swatches per color: yours first, then the ones you kept. Each swatch shows its step, with buttons to copy its value or open its details: the value in your color system, its token name, hex and oklch, and contrast with white and black text. Below the swatches are three tabs:
+
+- **Tokens.** The tokens in your format, with **Copy** and **Download**. Switching the format or color system above them reformats in place.
+- **Preview.** A small sample page in light and dark, colored by role: the background color you kept for the page, the text color for text, the primary or call-to-action color for buttons and links, and the accent for the badge and the alert's stripe. Without roles, the first color leads and the second is the accent. A note under the preview says which color does what.
+- **Contrast.** A matrix of WCAG contrast ratios between any two colors' steps, for checking text and background pairs.
+
+If balancing changed anything, a note says what, and **Show before balancing** lets you compare.
+
 ## Color Systems
 
 The supported systems are:
@@ -64,7 +74,7 @@ The supported systems are:
 | hsl    | `hsl(221 83% 53%)` | Easy to adjust by hand. |
 | cmyk   | `cmyk(84% 58% 0% 8%)` | For reference and print handoff. Browsers don't support CMYK in CSS yet, so Palletter also outputs a web-safe value next to each CMYK token. |
 
-When a color from the model is outside the sRGB gamut and you choose an sRGB-based system (rgb, hex, hsl), Palletter maps it into gamut and marks it so you know the value was adjusted.
+When a color is outside the sRGB gamut and you choose an sRGB-based system (rgb, hex, hsl), Palletter maps it into gamut and marks it so you know the value was adjusted.
 
 ## Palette Types
 
@@ -105,6 +115,8 @@ Each balanced palette says what Palletter changed, and **Show before balancing**
 
 ## Saturation
 
+Saturation is a hint for the agent when it suggests colors. It doesn't change the colors you keep.
+
 | Option | Description |
 | ------ | ----------- |
 | Vivid  | High chroma. Bold and energetic. |
@@ -118,13 +130,13 @@ Each balanced palette says what Palletter changed, and **Show before balancing**
 
 Palletter can output tokens as:
 
-- **CSS custom properties.** You choose the naming pattern, e.g. `--brand-[color]-[step]`, `--color-[role]-[step]`, or `--color-[mood]-[step]`.
+- **CSS custom properties.** You choose the naming pattern, e.g. `--color-[name]-[step]`, `--brand-[color]-[step]`, or `--color-[role]-[step]`. `[name]` and `[color]` use each color's name, `[role]` its role (such as `background` or `accent`), and `[step]` the step.
 - **Tailwind CSS v4.** An `@theme` block, so the colors are available as utilities such as `bg-brand-500`. Tailwind needs names in the form `--color-[name]-[step]`, so the naming pattern doesn't apply.
 - **Design Tokens JSON.** In the [W3C Design Tokens Community Group](https://www.designtokens.org) format, for tools such as Style Dictionary and Figma plugins.
 
 ### Example output
 
-A monochromatic `brand` palette in oklch, as CSS custom properties, with the range `100` to `300`:
+A `brand` color in oklch, as CSS custom properties, with the range `100` to `300`:
 
 ```css
 :root {
@@ -134,7 +146,7 @@ A monochromatic `brand` palette in oklch, as CSS custom properties, with the ran
 }
 ```
 
-The same palette as a Tailwind v4 theme:
+The same color as a Tailwind v4 theme:
 
 ```css
 @theme {
@@ -152,7 +164,7 @@ The same palette as a Tailwind v4 theme:
 | Range  | Any contiguous range of the full scale, e.g. `100` to `300` |
 | Count  | A specific number of evenly spaced steps, e.g. 5 gives `50, 300, 500, 700, 950` |
 
-Step `500` is anchored to your base hue unless you say otherwise. Lower numbers are lighter and higher numbers are darker, so the same token works the way you'd expect from Tailwind.
+Each color you keep sits unchanged at the step nearest its lightness, and the other steps are built around it: a light background lands near `50`, a dark text color near `950`, and a mid-tone near `500`. Lower numbers are lighter and higher numbers are darker, so the same token works the way you'd expect from Tailwind.
 
 ## Getting Started
 
@@ -209,9 +221,9 @@ Palletter sends a model only when you pick something other than the default, so 
 
 #### What the agent can do
 
-Palletter starts the agent the first time you create a palette and keeps it running until the server stops. Each palette request gets its own session, in an empty temporary folder.
+Palletter starts the agent the first time you ask for suggestions and keeps it running until the server stops. Each **Suggest colors** gets its own session, in an empty temporary folder. **More directions** and **More like this** continue that session, so the agent remembers what it already suggested. Sessions close 30 minutes after their last use; if one has closed, **More directions** starts a new one.
 
-The agent is given only the palette request and the Palletter skills:
+The agent is given only your request and the Palletter skills:
 
 - Palletter doesn't offer the agent any access to your files or terminal, and it refuses every permission request.
 - For Claude Code and MiniMax, Claude Code's built-in tools are switched off. Your Claude settings, `CLAUDE.md` files, and hooks aren't loaded.
@@ -277,7 +289,7 @@ The end-to-end tests need a Chromium for Playwright. Run `bunx playwright instal
 
 ### Trying the prompt without the app
 
-You can test the Palletter skills with any chat model:
+`bun run prompt` works with the palette prompt (the one behind the [palette API](#api)), not the suggestion prompt. You can test it with any chat model:
 
 ```bash
 bun run prompt '{"hues":[{"value":"#2563eb"}],"schemes":["analogous"]}' > prompt.txt
@@ -293,7 +305,7 @@ If the reply is good, this prints the tokens. If not, it lists the problems and 
 
 ### UI components
 
-The UI uses [SV5UI](https://sv5ui.vercel.app) components with Tailwind CSS 4, inside Astro's Svelte islands. Components use SV5UI's default styles: Palletter doesn't set their `variant`, `color`, `size`, or `ui` slot classes, except an Alert's color for errors and warnings and one functional fix on the hue input. Palletter's own classes only lay out the page. Theme colors come from SV5UI's tokens (`bg-surface`, `text-on-surface`, `border-outline-variant`, `bg-primary`, and so on); see [SV5UI theming](https://sv5ui.vercel.app/docs/theming) to change them in `src/styles/global.css`.
+The UI uses [SV5UI](https://sv5ui.vercel.app) components with Tailwind CSS 4, inside Astro's Svelte islands. Components use SV5UI's default styles: Palletter doesn't set their `variant`, `color`, `size`, or `ui` slot classes, except an Alert's color for errors and warnings and two layout fixes: the hue input's picker slot, and the Advanced options labels, so long summaries truncate. Palletter's own classes only lay out the page. Theme colors come from SV5UI's tokens (`bg-surface`, `text-on-surface`, `border-outline-variant`, `bg-primary`, and so on); see [SV5UI theming](https://sv5ui.vercel.app/docs/theming) to change them in `src/styles/global.css`.
 
 SV5UI is built for SvelteKit, so Palletter adds two small pieces to run it on Astro:
 
